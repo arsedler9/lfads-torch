@@ -1,8 +1,9 @@
-numpy
-pandas
-sklearn
 torch
 pytorch-lightning
 hydra-core
 h5py
-matplotlib
+wandb
+pre-commit
+black
+isort
+flake8
