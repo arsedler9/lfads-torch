@@ -1,0 +1,10 @@
+_target_: pytorch_lightning.Trainer
+
+# Logs the norms of the gradients
+track_grad_norm: 2
+# Clips the gradients by global norm
+gradient_clip_val: 200
+# Maximum number of epochs to train
+max_epochs: 10_000
+# Number of GPUs to use (typically 0 or 1)
+gpus: 1

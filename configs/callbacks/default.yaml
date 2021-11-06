@@ -1,0 +1,30 @@
+model_checkpoint:
+  # saves the model weights during training
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  # name of the logged metric which determines when model is improving
+  monitor: valid/recon
+  # whether the metric is being minimized or maximized
+  mode: min
+  # save k best models (determined by above metric)
+  save_top_k: 1
+  # additionaly always save model from last epoch
+  save_last: True
+  verbose: False
+  dirpath: ${os.env:PWD}
+  auto_insert_metric_name: True
+
+early_stopping:
+  # stops training if the metric stops improving
+  _target_: pytorch_lightning.callbacks.EarlyStopping
+  # name of the logged metric which determines when model is improving
+  monitor: valid/recon
+  # whether the metric is being minimized or maximized
+  mode: min
+  # how many epochs of not improving until training stops
+  patience: 200
+  # minimum change in the monitored metric needed to qualify as an improvement
+  min_delta: 0
+
+learning_rate_monitor:
+  _target_: pytorch_lightning.callbacks.LearningRateMonitor
+  logging_interval: epoch
