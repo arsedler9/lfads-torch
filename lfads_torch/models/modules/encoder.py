@@ -18,12 +18,14 @@ class Encoder(nn.Module):
         self.hparams = hps
 
         # Initial hidden state for IC encoder
-        self.ic_enc_h0 = torch.zeros((2, 1, hps.ic_enc_dim), requires_grad=True)
+        self.ic_enc_h0 = nn.Parameters(
+            torch.zeros((2, 1, hps.ic_enc_dim), requires_grad=True)
+        )
         # Initial condition encoder
         self.ic_enc = BidirectionalClippedGRU(
             input_size=hps.data_dim,
             hidden_size=hps.ic_enc_dim,
-            clip_value=hps.clip_value,
+            clip_value=hps.cell_clip,
         )
         # Mapping from final IC encoder state to IC parameters
         self.ic_linear = nn.Linear(hps.ic_enc_dim * 2, hps.ic_dim * 2)
@@ -38,12 +40,14 @@ class Encoder(nn.Module):
         )
         if self.use_con:
             # Initial hidden state for CI encoder
-            self.ci_enc_h0 = torch.zeros((2, 1, hps.ci_enc_dim), requires_grad=True)
+            self.ci_enc_h0 = nn.Parameter(
+                torch.zeros((2, 1, hps.ci_enc_dim), requires_grad=True)
+            )
             # CI encoder
             self.ci_enc = BidirectionalClippedGRU(
                 input_size=hps.data_dim,
                 hidden_size=hps.ci_enc_dim,
-                clip_value=hps.clip_value,
+                clip_value=hps.cell_clip,
             )
         # Activation dropout layer
         self.dropout = nn.Dropout(hps.dropout_rate)
@@ -52,7 +56,7 @@ class Encoder(nn.Module):
         hps = self.hparams
         assert data.shape[1] == hps.seq_len, (
             f"Sequence length specified in HPs ({hps.seq_len}) "
-            "must match data dim 1 ({data.shape[1]})."
+            f"must match data dim 1 ({data.shape[1]})."
         )
         data_drop = self.dropout(data)
         # option to use separate segment for IC encoding
@@ -70,8 +74,7 @@ class Encoder(nn.Module):
         h_n_drop = self.dropout(h_n)
         ic_params = self.ic_linear(h_n_drop)
         ic_mean, ic_logstd = torch.split(ic_params, hps.ic_dim, dim=1)
-        ic_std = torch.exp(ic_logstd) + hps.ic_post_var_min
-        ic_post = Independent(Normal(ic_mean, ic_std))
+        ic_std = torch.exp(ic_logstd) + torch.sqrt(hps.ic_post_var_min)
         if hps.ci_enc_dim > 0:
             # Pass data through CI encoder
             ci, _ = self.ci_enc(ci_enc_data, self.ci_enc_h0)
@@ -84,7 +87,4 @@ class Encoder(nn.Module):
         else:
             ci = torch.zeros_like(ci_enc_data)[:, :, : 2 * hps.ci_enc_dim]
 
-        return ic_post, ci
-
-    def update_hparams(self, hparams: dict):
-        pass
+        return ic_mean, ic_std, ci
