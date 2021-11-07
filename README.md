@@ -10,3 +10,13 @@ cd lfads-torch
 pip install -e .
 pre-commit install
 ```
+
+# NotImplemented
+- Hyperparameter validation
+- Hyperparameter updates for PBT
+- Low-dimensional readin layers (and multisession)
+- Autoregressive controller output prior with Monte Carlo KL (+ others?)
+- Encoder-only retraining
+- Exponentially-smoothed reconstruction metrics
+# TODO
+- Most recent and best reconstruction checkpoints

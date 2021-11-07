@@ -10,7 +10,7 @@ model_checkpoint:
   # additionaly always save model from last epoch
   save_last: True
   verbose: False
-  dirpath: ${os.env:PWD}
+  dirpath: "."
   auto_insert_metric_name: True
 
 early_stopping:

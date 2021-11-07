@@ -32,7 +32,7 @@ class Poisson:
         output_params: torch.Tensor,
     ) -> torch.Tensor:
         logrates = output_params[:, :, :, 0]
-        recon_all = F.poisson_nll_loss(logrates, data, full=True)
+        recon_all = F.poisson_nll_loss(logrates, data, full=True, reduction="none")
         return recon_all
 
 
@@ -76,5 +76,7 @@ class Gaussian:
         self, data: torch.Tensor, output_params: torch.Tensor
     ) -> torch.Tensor:
         means, vars = torch.unstack(output_params, axis=-1)
-        recon_all = F.gaussian_nll_loss(input=means, target=data, var=vars)
+        recon_all = F.gaussian_nll_loss(
+            input=means, target=data, var=vars, reduction="none"
+        )
         return recon_all

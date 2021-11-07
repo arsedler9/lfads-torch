@@ -5,9 +5,9 @@ defaults:
   - _self_
   - trainer: default.yaml
   - model: default.yaml
-  - datamodule: lorenz_datamodule.yaml
+  - datamodule: default.yaml
   - callbacks: default.yaml
-  - loggers: default.yaml
+  - logger: default.yaml
   # - mode: default.yaml
   # - experiment: null
   # - hparams_search: null
@@ -15,6 +15,7 @@ defaults:
   - override hydra/hydra_logging: colorlog
   - override hydra/job_logging: colorlog
 
+runs_home: /snel/share/runs/lfads-torch
 # pretty print config at the start of the run using Rich library
 print_config: True
 
@@ -30,3 +31,11 @@ seed: null
 
 # name of the run, accessed by loggers
 name: null
+
+# We may want to replace ${oc.env:USER} with e.g. ${project_name}
+hydra:
+  run:
+    dir: ${runs_home}/single/${oc.env:USER}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ${runs_home}/multi/${oc.env:USER}/${now:%Y-%m-%d_%H-%M-%S}
+  output_subdir: null

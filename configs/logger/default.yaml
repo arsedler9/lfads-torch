@@ -1,9 +1,11 @@
 csv_logger:
   _target_: pytorch_lightning.loggers.CSVLogger
-  save_dir: ${oc.env:PWD}
+  save_dir: "."
+  version: ""
   name: ""
 
 tensorboard_logger:
   _target_: pytorch_lightning.loggers.TensorBoardLogger
-  save_dir: ${oc.env:PWD}
+  save_dir: "."
+  version: ""
   name: ""

@@ -6,10 +6,10 @@ from torch.distributions import Independent, Normal
 from .modules import recon_losses
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
+from .modules.initializers import init_variance_scaling_
 from .modules.kl import compute_kl_penalties
 from .modules.l2 import compute_l2_penalty
 from .modules.overfitting import CoordinatedDropout, SampleValidation
-from .utils import dotdict
 
 # def validate_hparams(hparams: dict):
 #     hps = dotdict(hparams)
@@ -88,14 +88,14 @@ class LFADS(pl.LightningModule):
         self.recon_loss = getattr(recon_losses, recon_type)()
         # Create the mapping from factors to output parameters
         self.output_linear = nn.Linear(fac_dim, data_dim * self.recon_loss.n_params)
-        nn.init.normal_(self.output_linear.weight, std=1 / torch.sqrt(fac_dim))
+        init_variance_scaling_(self.output_linear.weight, fac_dim)
         # Create the prior parameters
         self.ic_prior_mean = nn.Parameter(torch.zeros(ic_dim), requires_grad=True)
-        ic_prior_logvar = torch.full(ic_dim, torch.log(ic_prior_var))
+        ic_prior_logvar = torch.log(torch.ones(ic_dim) * ic_prior_var)
         self.ic_prior_logvar = nn.Parameter(ic_prior_logvar, requires_grad=False)
         if self.use_con:
             self.co_prior_mean = nn.Parameter(torch.zeros(co_dim), requires_grad=True)
-            co_prior_logvar = torch.full(co_dim, torch.log(co_prior_var))
+            co_prior_logvar = torch.log(torch.ones(co_dim) * co_prior_var)
             self.co_prior_logvar = nn.Parameter(co_prior_logvar, requires_grad=False)
 
     def forward(self, data, ext_input):
@@ -103,7 +103,7 @@ class LFADS(pl.LightningModule):
         # Pass the data through the encoders
         ic_mean, ic_std, ci = self.encoder(data)
         # Create the posterior distribution over initial conditions
-        ic_post = Independent(Normal(ic_mean, ic_std))
+        ic_post = Independent(Normal(ic_mean, ic_std), 1)
         # Choose to take a sample or to pass the mean
         ic_samp = ic_post.sample() if hps.sample_posteriors else ic_mean
         # Unroll the decoder to estimate latent states
@@ -118,7 +118,8 @@ class LFADS(pl.LightningModule):
         ) = self.decoder(ic_samp, ci, ext_input)
         # Convert the factors representation into output distribution parameters
         output_params = self.output_linear(factors)
-        output_params = self.recon_loss.process_output_params(output_params)
+        # TODO: Do we still need the sample_and_average parameter?
+        output_params = self.recon_loss.process_output_params(output_params, False)
         # Return the parameter estimates and all intermediate activations
         return (
             output_params,
@@ -148,7 +149,11 @@ class LFADS(pl.LightningModule):
             eps=hps.lr_adam_epsilon,
             verbose=True,
         )
-        return [optimizer], [scheduler]
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+            "monitor": "valid/recon",
+        }
 
     def training_step(self, batch, batch_ix):
         hps = self.hparams
@@ -171,7 +176,7 @@ class LFADS(pl.LightningModule):
             recon_all, sv_mask, self.log, "train"
         )
         # Aggregate the heldout cost for logging
-        if not self.hparams.recon_reduce_mean:
+        if not hps.recon_reduce_mean:
             recon_all = torch.sum(recon_all, dim=(1, 2))
         recon = torch.mean(recon_all)
         # Compute the L2 penalty on recurrent weights
@@ -184,6 +189,9 @@ class LFADS(pl.LightningModule):
         kl_ramp = (self.current_epoch - hps.kl_start_epoch) / (
             hps.kl_increase_epoch + 1
         )
+        # Clamp the ramps
+        l2_ramp = torch.clamp(torch.tensor(l2_ramp), 0, 1)
+        kl_ramp = torch.clamp(torch.tensor(kl_ramp), 0, 1)
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Log all of the metrics
@@ -218,7 +226,7 @@ class LFADS(pl.LightningModule):
             recon_all, sv_mask, self.log, "valid"
         )
         # Aggregate the heldout cost for logging
-        if not self.hparams.recon_reduce_mean:
+        if not hps.recon_reduce_mean:
             recon_all = torch.sum(recon_all, dim=(1, 2))
         recon = torch.mean(recon_all)
         # Compute the L2 penalty on recurrent weights
@@ -231,6 +239,9 @@ class LFADS(pl.LightningModule):
         kl_ramp = (self.current_epoch - hps.kl_start_epoch) / (
             hps.kl_increase_epoch + 1
         )
+        # Clamp the ramps
+        l2_ramp = torch.clamp(torch.tensor(l2_ramp), 0, 1)
+        kl_ramp = torch.clamp(torch.tensor(kl_ramp), 0, 1)
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Log all of the metrics

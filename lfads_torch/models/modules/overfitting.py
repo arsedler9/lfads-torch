@@ -15,10 +15,17 @@ class CoordinatedDropout:
         unmaskable_data = input_data[:, : self.ic_enc_seq_len, :]
         maskable_data = input_data[:, self.ic_enc_seq_len :, :]
         # Sample a new CD mask at each training step
-        cd_mask = self.cd_input_dist.sample(maskable_data.shape)
-        pass_mask = self.cd_pass_dist.sample(maskable_data.shape)
+        device = input_data.device
+        cd_mask = self.cd_input_dist.sample(maskable_data.shape).to(device)
+        pass_mask = self.cd_pass_dist.sample(maskable_data.shape).to(device)
         # Save the gradient mask for `process_outputs`
-        self.grad_mask = torch.logical_or(torch.logical_not(cd_mask), pass_mask)
+        if self.cd_rate > 0:
+            self.grad_mask = torch.logical_or(
+                torch.logical_not(cd_mask), pass_mask
+            ).float()
+        else:
+            # If cd_rate == 0, turn off CD
+            self.grad_mask = torch.ones_like(cd_mask)
         # Mask and scale post-CD input so it has the same sum as the original data
         cd_masked_data = maskable_data * cd_mask / (1 - self.cd_rate)
         # Concatenate the data from the IC encoder segment if using

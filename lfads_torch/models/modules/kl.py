@@ -16,12 +16,12 @@ def compute_kl_penalties(lfads, ic_mean, ic_std, co_means, co_stds):
     ic_prior = Independent(Normal(lfads.ic_prior_mean, ic_prior_std), 1)
     # Compute KL for the IC's analytically
     ic_kl_batch = kl_divergence(ic_post, ic_prior)
-    wt_ic_kl = torch.mean(ic_kl_batch) * lfads.hparams.kl_ic_weight
+    wt_ic_kl = torch.mean(ic_kl_batch) * lfads.hparams.kl_ic_scale
     # Create the CO priors
     co_prior_std = torch.exp(0.5 * lfads.co_prior_logvar)
     co_prior = Independent(Normal(lfads.co_prior_mean, co_prior_std), 1)
     # Compute KL for CO's analytially, average across time and batch
     co_kl_batch = kl_divergence(co_post, co_prior)
-    wt_co_kl = torch.mean(co_kl_batch) * lfads.hparams.kl_co_weight
+    wt_co_kl = torch.mean(co_kl_batch) * lfads.hparams.kl_co_scale
 
     return wt_ic_kl, wt_co_kl

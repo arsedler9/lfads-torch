@@ -7,3 +7,5 @@ pre-commit
 black
 isort
 flake8
+rich
+hydra-colorlog

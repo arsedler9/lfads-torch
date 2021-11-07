@@ -47,8 +47,8 @@ class HDF5DataModule(pl.LightningDataModule):
             train_ext = to_tensor(data_dict["train_ext_input"])
             valid_ext = to_tensor(data_dict["valid_ext_input"])
         else:
-            train_ext = torch.zeros_like(train_data[..., 0:])
-            valid_ext = torch.zeros_like(valid_data[..., 0:])
+            train_ext = torch.zeros_like(train_data[..., :0])
+            valid_ext = torch.zeros_like(valid_data[..., :0])
         # Remove external inputs during the IC encoder segment
         train_ext = train_ext[:, hps.ic_enc_seq_len :, :]
         valid_ext = valid_ext[:, hps.ic_enc_seq_len :, :]
@@ -59,6 +59,9 @@ class HDF5DataModule(pl.LightningDataModule):
         else:
             train_truth = torch.full_like(train_data, float("nan"))
             valid_truth = torch.full_like(valid_data, float("nan"))
+        # Remove ground truth during the IC encoder segment
+        train_truth = train_truth[:, hps.ic_enc_seq_len :, :]
+        valid_truth = valid_truth[:, hps.ic_enc_seq_len :, :]
         # Create and store the datasets
         self.train_ds = TensorDataset(
             train_data,

@@ -1,9 +1,9 @@
-_target_: torch_lfads.models.base_model.LFADS
+_target_: lfads_torch.models.base_model.LFADS
 
 # --------- architecture --------- #
 data_dim: 50
 ext_input_dim: 0
-seq_len: 50
+seq_len: 100
 ic_enc_seq_len: 0
 ic_enc_dim: 128
 ci_enc_dim: 128

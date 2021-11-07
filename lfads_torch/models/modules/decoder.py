@@ -3,25 +3,20 @@ import torch.nn.functional as F
 from torch import nn
 from torch.distributions import Independent, Normal
 
-from ...utils import dotdict
+from .initializers import init_gru_cell_, init_variance_scaling_
 from .recurrent import ClippedGRUCell
 
 
 class KernelNormalizedLinear(nn.Linear):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.unnormed_weight = self.weight
-
     def forward(self, input):
-        self.weight = F.normalize(self.unnormed_weight, p=2, dim=0)
-        return super().forward(input)
+        normed_weight = F.normalize(self.weight, p=2, dim=0)
+        return F.linear(input, normed_weight, self.bias)
 
 
 class DecoderCell(nn.Module):
     def __init__(self, hparams):
         super().__init__()
-        hps = dotdict(hparams)
-        self.hparams = hps
+        self.hparams = hps = hparams
         # Create the generator
         self.gen_cell = ClippedGRUCell(
             hps.ext_input_dim + hps.co_dim, hps.gen_dim, clip_value=hps.cell_clip
@@ -39,17 +34,13 @@ class DecoderCell(nn.Module):
             ]
         )
         if self.use_con:
-            # Initial hidden state for controller
-            self.con_h0 = nn.Parameter(
-                torch.zeros((1, hps.con_dim), requires_grad=True)
-            )
             # Create the controller
             self.con_cell = ClippedGRUCell(
-                hps.ci_enc_dim + hps.fac_dim, hps.con_dim, clip_value=hps.cell_clip
+                2 * hps.ci_enc_dim + hps.fac_dim, hps.con_dim, clip_value=hps.cell_clip
             )
             # Define the mapping from controller state to controller output parameters
             self.co_linear = nn.Linear(hps.con_dim, hps.co_dim * 2)
-            nn.init.normal_(self.co_linear.weight, std=1 / torch.sqrt(hps.con_dim))
+            init_variance_scaling_(self.co_linear.weight, hps.con_dim)
         # Keep track of the state dimensions
         self.state_dims = [
             hps.gen_dim,
@@ -60,7 +51,7 @@ class DecoderCell(nn.Module):
             hps.fac_dim,
         ]
         # Keep track of the input dimensions
-        self.input_dims = [hps.ci_enc_dim, hps.ext_input_dim]
+        self.input_dims = [2 * hps.ci_enc_dim, hps.ext_input_dim]
 
     def forward(self, input, h_0):
         hps = self.hparams
@@ -69,7 +60,7 @@ class DecoderCell(nn.Module):
         gen_state, con_state, co_mean, co_std, gen_input, factor = torch.split(
             h_0, self.state_dims, dim=1
         )
-        ci_step, ext_input_step = torch.split(input, self.input_dims, axis=1)
+        ci_step, ext_input_step = torch.split(input, self.input_dims, dim=1)
 
         if self.use_con:
             # Compute controller inputs with dropout
@@ -84,7 +75,7 @@ class DecoderCell(nn.Module):
             # Generate controller outputs
             if hps.sample_posteriors:
                 # Sample from the distribution of controller outputs
-                co_post = Independent(Normal(co_mean, co_std))
+                co_post = Independent(Normal(co_mean, co_std), 1)
                 con_output = co_post.sample()
             else:
                 # Pass mean in deterministic mode
@@ -99,7 +90,9 @@ class DecoderCell(nn.Module):
         gen_state_drop = self.dropout(gen_state)
         factor = self.fac_linear(gen_state_drop)
 
-        hidden = torch.cat([gen_state, con_state, co_mean, co_std, gen_input, factor])
+        hidden = torch.cat(
+            [gen_state, con_state, co_mean, co_std, gen_input, factor], dim=1
+        )
 
         return hidden
 
@@ -123,44 +116,45 @@ class DecoderRNN(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, hparams):
         super().__init__()
-        hps = dotdict(hparams)
-        self.hparams = hps
+        self.hparams = hps = hparams
 
         self.dropout = nn.Dropout(hps.dropout_rate)
         # Create the mapping from ICs to gen_state
         self.ic_to_g0 = nn.Linear(hps.ic_dim, hps.gen_dim)
-        nn.init.normal_(self.ic_to_g0.weight, std=1 / torch.sqrt(hps.ic_dim))
+        init_variance_scaling_(self.ic_to_g0.weight, hps.ic_dim)
         # Create the decoder RNN
         self.rnn = DecoderRNN(hparams=hparams)
-        # Create the mapping from factors to rates
-        self.lograte_linear = nn.Linear(hps.fac_dim, hps.data_dim)
-        nn.init.normal_(self.lograte_linear.weight, std=1 / torch.sqrt(hps.fac_dim))
+        # Initial hidden state for controller
+        self.con_h0 = nn.Parameter(torch.zeros((1, hps.con_dim), requires_grad=True))
 
     def forward(self, ic_samp, ci, ext_input):
         hps = self.hparams
 
         # Get size of current batch (may be different than hps.batch_size)
-        batch_size = ic_samp.shape[1]
+        batch_size = ic_samp.shape[0]
         # Calculate initial generator state and pass it to the RNN with dropout rate
         gen_init = self.ic_to_g0(ic_samp)
         gen_init_drop = self.dropout(gen_init)
         # Perform dropout on the external inputs
         ext_input_drop = self.dropout(ext_input)
         # Prepare the decoder inputs and and initial state of decoder RNN
-        dec_rnn_input = torch.cat([ci, ext_input_drop], axis=2)
+        dec_rnn_input = torch.cat([ci, ext_input_drop], dim=2)
+        device = gen_init.device
         dec_rnn_h0 = torch.cat(
             [
                 gen_init,
-                self.rnn.cell.con_h0,
-                torch.zeros((batch_size, hps.co_dim)),
-                torch.zeros((batch_size, hps.co_dim)),
-                torch.zeros((batch_size, hps.co_dim)),
-                self.fac_linear(gen_init_drop),
+                torch.tile(self.con_h0, (batch_size, 1)),
+                torch.zeros((batch_size, hps.co_dim), device=device),
+                torch.zeros((batch_size, hps.co_dim), device=device),
+                torch.zeros(
+                    (batch_size, hps.co_dim + hps.ext_input_dim), device=device
+                ),
+                self.rnn.cell.fac_linear(gen_init_drop),
             ],
-            axis=1,
+            dim=1,
         )
-        states = self.rnn(dec_rnn_input, dec_rnn_h0)
-        split_states = torch.split(states, self.rnn.cell.state_dims, dim=1)
-        dec_output = tuple(gen_init, *split_states)
+        states, _ = self.rnn(dec_rnn_input, dec_rnn_h0)
+        split_states = torch.split(states, self.rnn.cell.state_dims, dim=2)
+        dec_output = (gen_init, *split_states)
 
         return dec_output

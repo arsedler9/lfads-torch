@@ -1,10 +1,10 @@
 _target_: lfads_torch.datamodules.hdf5.HDF5DataModule
 
-data_dir: /snel/share/runs/PBT/paper-fix/lfadslite-testing/data_chaotic/chaotic_chaotic_rnn_inputs_2_dataset_N50_S50_1000trials
+data_path: /snel/share/runs/PBT/paper-fix/lfadslite-testing/data_chaotic/chaotic_chaotic_rnn_inputs_2_dataset_N50_S50_1000trials
 batch_size: 128
 num_workers: 1
 ext_input: False
-ground_truth: False
+ground_truth: True
 sv_rate: ${model.sv_rate}
 sv_seed: ${model.sv_seed}
 ic_enc_seq_len: ${model.ic_enc_seq_len}
