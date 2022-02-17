@@ -1,0 +1,16 @@
+defaults:
+  # Use colored logger
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+  # Use the current file by default
+  - _self_
+
+# Specify groups of runs by using a `/` in the run_tag
+run_tag: ???
+runs_home: /snel/share/runs/lfads-torch/testing
+config_train: single_train.yaml
+
+hydra:
+  run:
+    dir: ${runs_home}/single/${run_tag}
+  output_subdir: null

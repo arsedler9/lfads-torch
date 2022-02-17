@@ -1,33 +1,19 @@
-# import dotenv
 import hydra
-from omegaconf import DictConfig
-
-# # load environment variables from `.env` file if it exists
-# # recursively searches for `.env` in all folders starting from work dir
-# dotenv.load_dotenv(override=True)
+from omegaconf import DictConfig, OmegaConf
 
 
-@hydra.main(config_path="configs/", config_name="config_single.yaml")
+@hydra.main(config_path="configs/", config_name="single.yaml")
 def main(config: DictConfig):
 
     # Imports should be nested inside @hydra.main to optimize tab completion
     # Read more here: https://github.com/facebookresearch/hydra/issues/934
+    print(OmegaConf.to_yaml(config, resolve=True))
     from lfads_torch.train import train
-    from lfads_torch.utils import utils
 
-    # A couple of optional utilities:
-    # - disabling python warnings
-    # - forcing debug-friendly configuration
-    # - verifying experiment name is set when running in experiment mode
-    # You can safely get rid of this line if you don't want those
-    utils.extras(config)
-
-    # Pretty print config using Rich library
-    if config.get("print_config"):
-        utils.print_config(config, resolve=True)
-
-    # Train model
-    return train(config)
+    # Clear the GlobalHydra instance so we can compose again in `train`
+    hydra.core.global_hydra.GlobalHydra.instance().clear()
+    # Run the training function
+    return train({"config_train": config.config_train})
 
 
 if __name__ == "__main__":

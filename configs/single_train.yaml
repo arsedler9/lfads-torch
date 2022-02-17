@@ -1,0 +1,17 @@
+defaults:
+  - model: default
+  - datamodule: default
+  - callbacks: default
+  - logger: default
+  # enable color logging
+  - override hydra/hydra_logging: colorlog
+  - override hydra/job_logging: colorlog
+  - _self_
+
+seed: 0
+
+trainer:
+  _target_: pytorch_lightning.Trainer
+  gradient_clip_val: 200
+  max_epochs: 10_000
+  log_every_n_steps: 5

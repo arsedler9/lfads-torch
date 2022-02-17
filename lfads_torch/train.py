@@ -1,16 +1,19 @@
+import logging
+from os import path
 from typing import List, Optional
 
 import hydra
 import pytorch_lightning as pl
-from omegaconf import DictConfig
+import torch
+from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.loggers import LightningLoggerBase
 
-from lfads_torch.utils import utils
+from .utils import flatten
 
-log = utils.get_logger(__name__)
+log = logging.getLogger(__name__)
 
 
-def train(config: DictConfig) -> Optional[float]:
+def train(overrides: dict, checkpoint_dir: str = None) -> Optional[float]:
     """Contains training pipeline.
     Instantiates all PyTorch Lightning objects from config.
     Args:
@@ -18,6 +21,17 @@ def train(config: DictConfig) -> Optional[float]:
     Returns:
         Optional[float]: Metric score for hyperparameter optimization.
     """
+
+    # Get the name of the train config
+    config_train = overrides.pop("config_train")
+
+    # Format the overrides so they can be used by hydra
+    overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]
+
+    # Compose the train config
+    config_path = path.join(path.dirname(path.dirname(__file__)), "configs/")
+    with hydra.initialize(config_path=path.relpath(config_path), job_name="train"):
+        config = hydra.compose(config_name=config_train, overrides=overrides)
 
     # Set seed for random number generators in pytorch, numpy and python.random
     if config.get("seed") is not None:
@@ -37,7 +51,7 @@ def train(config: DictConfig) -> Optional[float]:
         for _, cb_conf in config.callbacks.items():
             if "_target_" in cb_conf:
                 log.info(f"Instantiating callback <{cb_conf._target_}>")
-                callbacks.append(hydra.utils.instantiate(cb_conf))
+                callbacks.append(hydra.utils.instantiate(cb_conf, _convert_="all"))
 
     # Init lightning loggers
     logger: List[LightningLoggerBase] = []
@@ -49,46 +63,18 @@ def train(config: DictConfig) -> Optional[float]:
 
     # Init lightning trainer
     log.info(f"Instantiating trainer <{config.trainer._target_}>")
-    trainer: pl.Trainer = hydra.utils.instantiate(
-        config.trainer, callbacks=callbacks, logger=logger, _convert_="partial"
+    resume_from_checkpoint = (
+        path.join(checkpoint_dir, "checkpoint") if checkpoint_dir is not None else None
     )
-
-    # Send some parameters from config to all lightning loggers
-    log.info("Logging hyperparameters.")
-    utils.log_hyperparameters(
-        config=config,
-        model=model,
-        datamodule=datamodule,
-        trainer=trainer,
+    trainer: pl.Trainer = hydra.utils.instantiate(
+        config.trainer,
+        gpus=int(torch.cuda.is_available()),
         callbacks=callbacks,
         logger=logger,
+        resume_from_checkpoint=resume_from_checkpoint,
+        _convert_="partial",
     )
 
     # Train the model
     log.info("Starting training.")
     trainer.fit(model=model, datamodule=datamodule)
-
-    # # Evaluate model on test set, using the best model achieved during training
-    # if config.get("test_after_training") and not config.trainer.get("fast_dev_run"):
-    #     log.info("Starting testing.")
-    #     trainer.test()
-
-    # Make sure everything closed properly
-    log.info("Finalizing.")
-    utils.finish(
-        config=config,
-        model=model,
-        datamodule=datamodule,
-        trainer=trainer,
-        callbacks=callbacks,
-        logger=logger,
-    )
-
-    # Print path to best checkpoint
-    if not config.trainer.get("fast_dev_run"):
-        log.info(f"Best model ckpt: {trainer.checkpoint_callback.best_model_path}")
-
-    # Return metric score for hyperparameter optimization
-    optimized_metric = config.get("optimized_metric")
-    if optimized_metric:
-        return trainer.callback_metrics[optimized_metric]

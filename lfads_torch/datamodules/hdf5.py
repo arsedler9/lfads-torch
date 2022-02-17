@@ -19,9 +19,9 @@ class HDF5DataModule(pl.LightningDataModule):
         num_workers: int = 0,
         ext_input: bool = False,
         ground_truth: bool = False,
-        sv_rate: float = 0.0,
-        sv_seed: int = 0,
-        ic_enc_seq_len: int = 0,
+        dm_sv_rate: float = 0.0,
+        dm_sv_seed: int = 0,
+        dm_ic_enc_seq_len: int = 0,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -35,13 +35,13 @@ class HDF5DataModule(pl.LightningDataModule):
         train_data = to_tensor(data_dict["train_data"])
         valid_data = to_tensor(data_dict["valid_data"])
         # Create sample validation masks
-        torch.manual_seed(hps.sv_seed)
-        sv_input_dist = Bernoulli(1 - hps.sv_rate)
+        torch.manual_seed(hps.dm_sv_seed)
+        sv_input_dist = Bernoulli(1 - hps.dm_sv_rate)
         train_sv_mask = sv_input_dist.sample(train_data.shape)
         valid_sv_mask = sv_input_dist.sample(valid_data.shape)
         # Remove sample validation during the IC encoder segment
-        train_sv_mask = train_sv_mask[:, hps.ic_enc_seq_len :, :]
-        valid_sv_mask = valid_sv_mask[:, hps.ic_enc_seq_len :, :]
+        train_sv_mask = train_sv_mask[:, hps.dm_ic_enc_seq_len :, :]
+        valid_sv_mask = valid_sv_mask[:, hps.dm_ic_enc_seq_len :, :]
         # Load or simulate external inputs
         if hps.ext_input:
             train_ext = to_tensor(data_dict["train_ext_input"])
@@ -50,8 +50,8 @@ class HDF5DataModule(pl.LightningDataModule):
             train_ext = torch.zeros_like(train_data[..., :0])
             valid_ext = torch.zeros_like(valid_data[..., :0])
         # Remove external inputs during the IC encoder segment
-        train_ext = train_ext[:, hps.ic_enc_seq_len :, :]
-        valid_ext = valid_ext[:, hps.ic_enc_seq_len :, :]
+        train_ext = train_ext[:, hps.dm_ic_enc_seq_len :, :]
+        valid_ext = valid_ext[:, hps.dm_ic_enc_seq_len :, :]
         # Load or simulate ground truth
         if hps.ground_truth:
             train_truth = to_tensor(data_dict["train_truth"])
@@ -60,8 +60,8 @@ class HDF5DataModule(pl.LightningDataModule):
             train_truth = torch.full_like(train_data, float("nan"))
             valid_truth = torch.full_like(valid_data, float("nan"))
         # Remove ground truth during the IC encoder segment
-        train_truth = train_truth[:, hps.ic_enc_seq_len :, :]
-        valid_truth = valid_truth[:, hps.ic_enc_seq_len :, :]
+        train_truth = train_truth[:, hps.dm_ic_enc_seq_len :, :]
+        valid_truth = valid_truth[:, hps.dm_ic_enc_seq_len :, :]
         # Create and store the datasets
         self.train_ds = TensorDataset(
             train_data,

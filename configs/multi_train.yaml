@@ -1,0 +1,40 @@
+defaults:
+  - model: default
+  - datamodule: default
+  - callbacks: default
+  - logger: default
+  # enable color logging
+  - override hydra/hydra_logging: colorlog
+  - override hydra/job_logging: colorlog
+  - _self_
+
+seed: 0
+
+trainer:
+  _target_: pytorch_lightning.Trainer
+  gradient_clip_val: 200
+  max_epochs: 10_000
+  log_every_n_steps: 5
+  # Prevent console output by individual models
+  progress_bar_refresh_rate: 0
+  weights_summary: null
+
+# TODO: Do the below changes make it into the config?
+callbacks:
+  tune_report_checkpoint_callback:
+    _target_: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
+    metrics:
+      - train/recon
+      - valid/recon
+      - epoch
+    filename: checkpoint
+    "on": validation_end
+
+logger:
+  tensorboard_logger:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    # Configure logger so PTL and ray use the same TB file.
+    save_dir:
+      _target_: ray.tune.get_trial_dir
+    version: "."
+    name: ""
