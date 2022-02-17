@@ -20,7 +20,7 @@ ray_tune_run:
   # search_alg:
   #   _target_: ray.tune.suggest.basic_variant.BasicVariantGenerator
   #   random_state: 0
-  num_samples: 5
+  num_samples: 24
   # With `name`, a hack to get `ray.tune` to use the directory created by `hydra`.
   local_dir: ".."
   verbose: 1
@@ -49,12 +49,14 @@ search_space:
       _target_: ray.tune.loguniform
       lower: 1.0e-5
       upper: 1.0e-3
+    l2_increase_epoch: 50
+    kl_increase_epoch: 50
 
 progress_reporter:
   _target_: ray.tune.CLIReporter
   metric_columns:
     - valid/recon
-    - epoch
+    - cur_epoch
   sort_by_metric: True
 
 hydra:

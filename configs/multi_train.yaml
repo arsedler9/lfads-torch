@@ -16,18 +16,16 @@ trainer:
   max_epochs: 10_000
   log_every_n_steps: 5
   # Prevent console output by individual models
-  progress_bar_refresh_rate: 0
-  weights_summary: null
+  enable_progress_bar: False
+  enable_model_summary: False
 
-# TODO: Do the below changes make it into the config?
 callbacks:
-  tune_report_checkpoint_callback:
-    _target_: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
+  tune_report_callback:
+    _target_: ray.tune.integration.pytorch_lightning.TuneReportCallback
     metrics:
       - train/recon
       - valid/recon
-      - epoch
-    filename: checkpoint
+      - cur_epoch
     "on": validation_end
 
 logger:

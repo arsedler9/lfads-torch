@@ -3,7 +3,8 @@ import torch
 from torch import nn
 from torch.distributions import Independent, Normal
 
-from .modules import recon_losses
+from ..metrics import r2_score
+from .modules import reconstructions
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
 from .modules.initializers import init_variance_scaling_
@@ -85,9 +86,9 @@ class LFADS(pl.LightningModule):
             sv_rate, ic_enc_seq_len, recon_reduce_mean
         )
         # Create object to manage reconstruction loss
-        self.recon_loss = getattr(recon_losses, recon_type)()
+        self.recon = getattr(reconstructions, recon_type)()
         # Create the mapping from factors to output parameters
-        self.output_linear = nn.Linear(fac_dim, data_dim * self.recon_loss.n_params)
+        self.output_linear = nn.Linear(fac_dim, data_dim * self.recon.n_params)
         init_variance_scaling_(self.output_linear.weight, fac_dim)
         # Create the prior parameters
         self.ic_prior_mean = nn.Parameter(torch.zeros(ic_dim), requires_grad=True)
@@ -105,7 +106,7 @@ class LFADS(pl.LightningModule):
         # Create the posterior distribution over initial conditions
         ic_post = Independent(Normal(ic_mean, ic_std), 1)
         # Choose to take a sample or to pass the mean
-        ic_samp = ic_post.sample() if hps.sample_posteriors else ic_mean
+        ic_samp = ic_post.rsample() if hps.sample_posteriors else ic_mean
         # Unroll the decoder to estimate latent states
         (
             gen_init,
@@ -119,7 +120,7 @@ class LFADS(pl.LightningModule):
         # Convert the factors representation into output distribution parameters
         output_params = self.output_linear(factors)
         # TODO: Do we still need the sample_and_average parameter?
-        output_params = self.recon_loss.process_output_params(output_params, False)
+        output_params = self.recon.process_output_params(output_params, False)
         # Return the parameter estimates and all intermediate activations
         return (
             output_params,
@@ -168,7 +169,7 @@ class LFADS(pl.LightningModule):
         )
         posterior_params = (ic_mean, ic_std, co_means, co_stds)
         # Compute the reconstruction loss
-        recon_all = self.recon_loss.compute_loss(data, output_params)
+        recon_all = self.recon.compute_loss(data, output_params)
         # Apply coordinated dropout processing to the recon costs
         recon_all = self.coord_dropout.process_outputs(recon_all)
         # Apply sample validation processing to the recon costs
@@ -194,10 +195,13 @@ class LFADS(pl.LightningModule):
         kl_ramp = torch.clamp(torch.tensor(kl_ramp), 0, 1)
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
+        # Compute the reconstruction accuracy, if applicable
+        r2 = r2_score(self.recon.compute_mean(output_params), truth)
         # Log all of the metrics
         metrics = {
             "train/loss": loss,
             "train/recon": recon,
+            "train/r2": r2,
             "train/wt_l2": l2,
             "train/wt_l2/ramp": l2_ramp,
             "train/wt_kl": ic_kl + co_kl,
@@ -220,7 +224,7 @@ class LFADS(pl.LightningModule):
         )
         posterior_params = (ic_mean, ic_std, co_means, co_stds)
         # Compute the reconstruction loss
-        recon_all = self.recon_loss.compute_loss(data, output_params)
+        recon_all = self.recon.compute_loss(data, output_params)
         # Apply sample validation processing to the recon costs
         recon_all = self.samp_validation.process_outputs(
             recon_all, sv_mask, self.log, "valid"
@@ -244,16 +248,21 @@ class LFADS(pl.LightningModule):
         kl_ramp = torch.clamp(torch.tensor(kl_ramp), 0, 1)
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
+        # Compute the reconstruction accuracy, if applicable
+        r2 = r2_score(self.recon.compute_mean(output_params), truth)
         # Log all of the metrics
         metrics = {
             "valid/loss": loss,
             "valid/recon": recon,
+            "valid/r2": r2,
             "valid/wt_l2": l2,
             "valid/wt_l2/ramp": l2_ramp,
             "valid/wt_kl": ic_kl + co_kl,
             "valid/wt_kl/ic": ic_kl,
             "valid/wt_kl/co": co_kl,
             "valid/wt_kl/ramp": kl_ramp,
+            "hp_metric": recon,
+            "cur_epoch": float(self.current_epoch),
         }
         self.log_dict(metrics)
 

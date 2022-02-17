@@ -76,7 +76,7 @@ class DecoderCell(nn.Module):
             if hps.sample_posteriors:
                 # Sample from the distribution of controller outputs
                 co_post = Independent(Normal(co_mean, co_std), 1)
-                con_output = co_post.sample()
+                con_output = co_post.rsample()
             else:
                 # Pass mean in deterministic mode
                 con_output = co_mean

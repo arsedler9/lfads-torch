@@ -54,8 +54,9 @@ class HDF5DataModule(pl.LightningDataModule):
         valid_ext = valid_ext[:, hps.dm_ic_enc_seq_len :, :]
         # Load or simulate ground truth
         if hps.ground_truth:
-            train_truth = to_tensor(data_dict["train_truth"])
-            valid_truth = to_tensor(data_dict["valid_truth"])
+            cf = data_dict["conversion_factor"]
+            train_truth = to_tensor(data_dict["train_truth"]) / cf
+            valid_truth = to_tensor(data_dict["valid_truth"]) / cf
         else:
             train_truth = torch.full_like(train_data, float("nan"))
             valid_truth = torch.full_like(valid_data, float("nan"))
