@@ -34,8 +34,6 @@ def main(config: DictConfig):
     )
     print(f"Best hyperparameters: {analysis.best_config}")
 
-    return train(config)
-
 
 if __name__ == "__main__":
     main()
