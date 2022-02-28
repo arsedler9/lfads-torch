@@ -2,10 +2,10 @@ import logging
 from os import path
 from typing import List, Optional
 
-import hydra
 import pytorch_lightning as pl
 import torch
-from omegaconf import DictConfig, OmegaConf
+from hydra import compose, initialize
+from hydra.utils import instantiate
 from pytorch_lightning.loggers import LightningLoggerBase
 
 from .utils import flatten
@@ -13,13 +13,9 @@ from .utils import flatten
 log = logging.getLogger(__name__)
 
 
-def train(overrides: dict, checkpoint_dir: str = None) -> Optional[float]:
-    """Contains training pipeline.
-    Instantiates all PyTorch Lightning objects from config.
-    Args:
-        config (DictConfig): Configuration composed by Hydra.
-    Returns:
-        Optional[float]: Metric score for hyperparameter optimization.
+def train(overrides: dict, checkpoint_dir: str = None):
+    """Adds overrides to the default config, instantiates all PyTorch Lightning
+    objects from config, and runs the training pipeline.
     """
 
     # Get the name of the train config
@@ -29,9 +25,8 @@ def train(overrides: dict, checkpoint_dir: str = None) -> Optional[float]:
     overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]
 
     # Compose the train config
-    config_path = path.join(path.dirname(path.dirname(__file__)), "configs/")
-    with hydra.initialize(config_path=path.relpath(config_path), job_name="train"):
-        config = hydra.compose(config_name=config_train, overrides=overrides)
+    with initialize(config_path="../configs/", job_name="train"):
+        config = compose(config_name=config_train, overrides=overrides)
 
     # Set seed for random number generators in pytorch, numpy and python.random
     if config.get("seed") is not None:
@@ -39,11 +34,11 @@ def train(overrides: dict, checkpoint_dir: str = None) -> Optional[float]:
 
     # Init lightning datamodule
     log.info(f"Instantiating datamodule <{config.datamodule._target_}>")
-    datamodule: pl.LightningDataModule = hydra.utils.instantiate(config.datamodule)
+    datamodule: pl.LightningDataModule = instantiate(config.datamodule)
 
     # Init lightning model
     log.info(f"Instantiating model <{config.model._target_}>")
-    model: pl.LightningModule = hydra.utils.instantiate(config.model)
+    model: pl.LightningModule = instantiate(config.model)
 
     # Init lightning callbacks
     callbacks: List[pl.Callback] = []
@@ -51,7 +46,7 @@ def train(overrides: dict, checkpoint_dir: str = None) -> Optional[float]:
         for _, cb_conf in config.callbacks.items():
             if "_target_" in cb_conf:
                 log.info(f"Instantiating callback <{cb_conf._target_}>")
-                callbacks.append(hydra.utils.instantiate(cb_conf, _convert_="all"))
+                callbacks.append(instantiate(cb_conf, _convert_="all"))
 
     # Init lightning loggers
     logger: List[LightningLoggerBase] = []
@@ -59,14 +54,14 @@ def train(overrides: dict, checkpoint_dir: str = None) -> Optional[float]:
         for _, lg_conf in config.logger.items():
             if "_target_" in lg_conf:
                 log.info(f"Instantiating logger <{lg_conf._target_}>")
-                logger.append(hydra.utils.instantiate(lg_conf))
+                logger.append(instantiate(lg_conf))
 
     # Init lightning trainer
     log.info(f"Instantiating trainer <{config.trainer._target_}>")
     resume_from_checkpoint = (
         path.join(checkpoint_dir, "checkpoint") if checkpoint_dir is not None else None
     )
-    trainer: pl.Trainer = hydra.utils.instantiate(
+    trainer: pl.Trainer = instantiate(
         config.trainer,
         gpus=int(torch.cuda.is_available()),
         callbacks=callbacks,
