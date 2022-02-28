@@ -8,7 +8,6 @@ from .modules import recons
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
 from .modules.initializers import init_variance_scaling_
-from .modules.kl import compute_kl_penalties
 from .modules.l2 import compute_l2_penalty
 from .modules.overfitting import CoordinatedDropout, SampleValidation
 
@@ -30,46 +29,46 @@ from .modules.overfitting import CoordinatedDropout, SampleValidation
 class LFADS(pl.LightningModule):
     def __init__(
         self,
-        data_dim: int = 50,
-        ext_input_dim: int = 0,
-        seq_len: int = 50,
-        ic_enc_seq_len: int = 0,
-        ic_enc_dim: int = 128,
-        ci_enc_dim: int = 128,
-        ci_lag: int = 1,
-        con_dim: int = 128,
-        co_dim: int = 1,
-        ic_dim: int = 64,
-        gen_dim: int = 200,
-        fac_dim: int = 50,
-        dropout_rate: float = 0.05,
-        cd_rate: float = 0.0,
-        cd_pass_rate: float = 0.0,
-        sv_rate: float = 0.0,
-        sv_seed: int = 0,
-        reconstruction: recons.Reconstruction = recons.Poisson(),
-        sample_posteriors: bool = True,
-        co_prior_var: float = 0.1,
-        ic_prior_var: float = 0.1,
-        ic_post_var_min: float = 1e-4,
-        cell_clip: float = 5.0,
-        loss_scale: float = 10_000,
-        recon_reduce_mean: bool = True,
-        lr_init: float = 0.01,
-        lr_stop: float = 1e-5,
-        lr_decay: float = 0.95,
-        lr_patience: int = 6,
-        lr_adam_epsilon: float = 1e-7,
-        l2_start_epoch: int = 0,
-        l2_increase_epoch: int = 500,
-        l2_ic_enc_scale: float = 0.0,
-        l2_ci_enc_scale: float = 0.0,
-        l2_gen_scale: float = 2e4,
-        l2_con_scale: float = 0.0,
-        kl_start_epoch: int = 0,
-        kl_increase_epoch: int = 500,
-        kl_ic_scale: float = 1.0,
-        kl_co_scale: float = 1.0,
+        data_dim: int,
+        ext_input_dim: int,
+        seq_len: int,
+        ic_enc_seq_len: int,
+        ic_enc_dim: int,
+        ci_enc_dim: int,
+        ci_lag: int,
+        con_dim: int,
+        co_dim: int,
+        ic_dim: int,
+        gen_dim: int,
+        fac_dim: int,
+        dropout_rate: float,
+        cd_rate: float,
+        cd_pass_rate: float,
+        sv_rate: float,
+        sv_seed: int,
+        reconstruction: recons.Reconstruction,
+        sample_posteriors: bool,
+        co_prior: nn.Module,
+        ic_prior: nn.Module,
+        ic_post_var_min: float,
+        cell_clip: float,
+        loss_scale: float,
+        recon_reduce_mean: bool,
+        lr_init: float,
+        lr_stop: float,
+        lr_decay: float,
+        lr_patience: int,
+        lr_adam_epsilon: float,
+        l2_start_epoch: int,
+        l2_increase_epoch: int,
+        l2_ic_enc_scale: float,
+        l2_ci_enc_scale: float,
+        l2_gen_scale: float,
+        l2_con_scale: float,
+        kl_start_epoch: int,
+        kl_increase_epoch: int,
+        kl_ic_scale: float,
+        kl_co_scale: float,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -85,19 +84,15 @@ class LFADS(pl.LightningModule):
         self.samp_validation = SampleValidation(
             sv_rate, ic_enc_seq_len, recon_reduce_mean
         )
-        # Create object to manage reconstruction loss
+        # Create object to manage reconstruction
         self.recon = reconstruction
         # Create the mapping from factors to output parameters
         self.output_linear = nn.Linear(fac_dim, data_dim * self.recon.n_params)
         init_variance_scaling_(self.output_linear.weight, fac_dim)
-        # Create the prior parameters
-        self.ic_prior_mean = nn.Parameter(torch.zeros(ic_dim), requires_grad=True)
-        ic_prior_logvar = torch.log(torch.ones(ic_dim) * ic_prior_var)
-        self.ic_prior_logvar = nn.Parameter(ic_prior_logvar, requires_grad=False)
+        # Store the trainable priors
+        self.ic_prior = ic_prior
         if self.use_con:
-            self.co_prior_mean = nn.Parameter(torch.zeros(co_dim), requires_grad=True)
-            co_prior_logvar = torch.log(torch.ones(co_dim) * co_prior_var)
-            self.co_prior_logvar = nn.Parameter(co_prior_logvar, requires_grad=False)
+            self.co_prior = co_prior
 
     def forward(self, data, ext_input, output_means=True):
         hps = self.hparams
@@ -172,7 +167,6 @@ class LFADS(pl.LightningModule):
             ext_input,
             output_means=False,
         )
-        posterior_params = (ic_mean, ic_std, co_means, co_stds)
         # Compute the reconstruction loss
         recon_all = self.recon.compute_loss(data, output_params)
         # Apply coordinated dropout processing to the recon costs
@@ -191,7 +185,8 @@ class LFADS(pl.LightningModule):
             hps.l2_increase_epoch + 1
         )
         # Compute the KL penalty on posteriors
-        ic_kl, co_kl = compute_kl_penalties(self, *posterior_params)
+        ic_kl = self.ic_prior(ic_mean, ic_std) * self.hparams.kl_ic_scale
+        co_kl = self.co_prior(co_means, co_stds) * self.hparams.kl_co_scale
         kl_ramp = (self.current_epoch - hps.kl_start_epoch) / (
             hps.kl_increase_epoch + 1
         )
@@ -229,7 +224,6 @@ class LFADS(pl.LightningModule):
             ext_input,
             output_means=False,
         )
-        posterior_params = (ic_mean, ic_std, co_means, co_stds)
         # Compute the reconstruction loss
         recon_all = self.recon.compute_loss(data, output_params)
         # Apply sample validation processing to the recon costs
@@ -246,7 +240,8 @@ class LFADS(pl.LightningModule):
             hps.l2_increase_epoch + 1
         )
         # Compute the KL penalty on posteriors
-        ic_kl, co_kl = compute_kl_penalties(self, *posterior_params)
+        ic_kl = self.ic_prior(ic_mean, ic_std) * self.hparams.kl_ic_scale
+        co_kl = self.co_prior(co_means, co_stds) * self.hparams.kl_co_scale
         kl_ramp = (self.current_epoch - hps.kl_start_epoch) / (
             hps.kl_increase_epoch + 1
         )

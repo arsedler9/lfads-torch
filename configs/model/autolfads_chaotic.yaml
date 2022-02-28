@@ -24,9 +24,17 @@ sv_seed: 0
 # --------- priors / posteriors --------- #
 reconstruction:
   _target_: lfads_torch.models.modules.recons.Poisson
+co_prior:
+  _target_: lfads_torch.models.modules.priors.MultivariateNormal
+  mean: 0
+  variance: 0.1
+  shape: ${model.co_dim}
+ic_prior:
+  _target_: lfads_torch.models.modules.priors.MultivariateNormal
+  mean: 0
+  variance: 0.1
+  shape: ${model.ic_dim}
 sample_posteriors: True
-co_prior_var: 0.1
-ic_prior_var: 0.1
 ic_post_var_min: 1.0e-4
 
 # --------- misc --------- #
