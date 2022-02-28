@@ -1,6 +1,6 @@
 defaults:
-  - model: default
-  - datamodule: default
+  - model: autolfads_chaotic
+  - datamodule: autolfads_chaotic
   - callbacks: default
   - logger: default
   # enable color logging

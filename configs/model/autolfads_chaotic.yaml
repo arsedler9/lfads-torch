@@ -22,7 +22,8 @@ sv_rate: 0.0
 sv_seed: 0
 
 # --------- priors / posteriors --------- #
-recon_type: Poisson
+reconstruction:
+  _target_: lfads_torch.recons.Poisson
 sample_posteriors: True
 co_prior_var: 0.1
 ic_prior_var: 0.1
@@ -34,7 +35,7 @@ loss_scale: 1
 recon_reduce_mean: True
 
 # --------- learning rate --------- #
-lr_init: 0.01
+lr_init: 1.0e-3
 lr_stop: 1.0e-5
 lr_decay: 0.95
 lr_patience: 25 # increased bc of noise
