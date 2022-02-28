@@ -23,7 +23,7 @@ sv_seed: 0
 
 # --------- priors / posteriors --------- #
 reconstruction:
-  _target_: lfads_torch.recons.Poisson
+  _target_: lfads_torch.models.modules.recons.Poisson
 sample_posteriors: True
 co_prior_var: 0.1
 ic_prior_var: 0.1

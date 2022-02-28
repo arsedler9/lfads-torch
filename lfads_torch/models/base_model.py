@@ -4,7 +4,7 @@ from torch import nn
 from torch.distributions import Independent, Normal
 
 from ..metrics import r2_score
-from .modules import reconstructions
+from .modules import recons
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
 from .modules.initializers import init_variance_scaling_
@@ -47,7 +47,7 @@ class LFADS(pl.LightningModule):
         cd_pass_rate: float = 0.0,
         sv_rate: float = 0.0,
         sv_seed: int = 0,
-        recon_type: str = "Poisson",
+        reconstruction: recons.Reconstruction = recons.Poisson(),
         sample_posteriors: bool = True,
         co_prior_var: float = 0.1,
         ic_prior_var: float = 0.1,
@@ -86,7 +86,7 @@ class LFADS(pl.LightningModule):
             sv_rate, ic_enc_seq_len, recon_reduce_mean
         )
         # Create object to manage reconstruction loss
-        self.recon = getattr(reconstructions, recon_type)()
+        self.recon = reconstruction
         # Create the mapping from factors to output parameters
         self.output_linear = nn.Linear(fac_dim, data_dim * self.recon.n_params)
         init_variance_scaling_(self.output_linear.weight, fac_dim)
@@ -99,7 +99,7 @@ class LFADS(pl.LightningModule):
             co_prior_logvar = torch.log(torch.ones(co_dim) * co_prior_var)
             self.co_prior_logvar = nn.Parameter(co_prior_logvar, requires_grad=False)
 
-    def forward(self, data, ext_input):
+    def forward(self, data, ext_input, output_means=True):
         hps = self.hparams
         # Pass the data through the encoders
         ic_mean, ic_std, ci = self.encoder(data)
@@ -119,8 +119,11 @@ class LFADS(pl.LightningModule):
         ) = self.decoder(ic_samp, ci, ext_input)
         # Convert the factors representation into output distribution parameters
         output_params = self.output_linear(factors)
-        # TODO: Do we still need the sample_and_average parameter?
-        output_params = self.recon.process_output_params(output_params, False)
+        # Separate parameters of the output distribution
+        output_params = self.recon.reshape_output_params(output_params)
+        # Convert the output parameters to means if requested
+        if output_means:
+            output_params = self.recon.compute_means(output_params)
         # Return the parameter estimates and all intermediate activations
         return (
             output_params,
@@ -165,7 +168,9 @@ class LFADS(pl.LightningModule):
         cd_data = self.coord_dropout.process_inputs(sv_data)
         # Perform the forward pass
         output_params, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
-            cd_data, ext_input
+            cd_data,
+            ext_input,
+            output_means=False,
         )
         posterior_params = (ic_mean, ic_std, co_means, co_stds)
         # Compute the reconstruction loss
@@ -196,7 +201,7 @@ class LFADS(pl.LightningModule):
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
-        r2 = r2_score(self.recon.compute_mean(output_params), truth)
+        r2 = r2_score(self.recon.compute_means(output_params), truth)
         # Log all of the metrics
         metrics = {
             "train/loss": loss,
@@ -220,7 +225,9 @@ class LFADS(pl.LightningModule):
         sv_data = self.samp_validation.process_inputs(data, sv_mask)
         # Perform the forward pass
         output_params, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
-            sv_data, ext_input
+            sv_data,
+            ext_input,
+            output_means=False,
         )
         posterior_params = (ic_mean, ic_std, co_means, co_stds)
         # Compute the reconstruction loss
@@ -249,7 +256,7 @@ class LFADS(pl.LightningModule):
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
-        r2 = r2_score(self.recon.compute_mean(output_params), truth)
+        r2 = r2_score(self.recon.compute_means(output_params), truth)
         # Log all of the metrics
         metrics = {
             "valid/loss": loss,
