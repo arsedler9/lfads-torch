@@ -62,5 +62,4 @@ kl_ic_scale: 0.0 # sampled
 kl_co_scale: 0.0 # sampled
 
 # Differences
-# - Autoregressive prior (and related HPs)
 # - Smoothed metrics for LR decay
