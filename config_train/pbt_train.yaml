@@ -1,6 +1,6 @@
 defaults:
-  - model: default
-  - datamodule: default
+  - model: autolfads_chaotic
+  - datamodule: autolfads_chaotic
   - callbacks: default
   - logger: default
   # enable color logging
@@ -12,8 +12,8 @@ seed: 0
 
 trainer:
   _target_: pytorch_lightning.Trainer
-  gradent_clip_val: 200
-  num_epochs: 50
+  gradient_clip_val: 200
+  max_epochs: 1_000
   log_every_n_steps: 5
   # Prevent console output by individual models
   enable_progress_bar: False
@@ -27,7 +27,8 @@ callbacks:
       - valid/recon
       - cur_epoch
     filename: checkpoint
-    "on": train_end
+    # TODO: `train_end` doesn't work for some reason, but `validation_end` seems to save within epochs?
+    "on": validation_end
 
 logger:
   tensorboard_logger:

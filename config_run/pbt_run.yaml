@@ -10,8 +10,6 @@ runs_home: /snel/share/runs/lfads-torch/testing
 config_train: pbt_train.yaml
 
 ray_tune_run:
-  metric: valid/recon
-  mode: min
   name: ${run_tag}
   resources_per_trial:
     cpu: 2
@@ -20,19 +18,20 @@ ray_tune_run:
   # search_alg:
   #   _target_: ray.tune.suggest.basic_variant.BasicVariantGenerator
   #   random_state: 0
-  num_samples: 1
+  num_samples: 30
+  reuse_actors: True
   # With `name`, a hack to get `ray.tune` to use the directory created by `hydra`.
   local_dir: ".."
   verbose: 1
 
 search_space:
   model:
-    lr_init: 4.0e-3
+    lr_init: 1.0e-3
+    cd_rate: 0.5
     dropout_rate:
       _target_: ray.tune.uniform
       lower: 0.0
       upper: 0.6
-    cd_rate: 0.5
     l2_gen_scale:
       _target_: ray.tune.loguniform
       lower: 1.0e-4
@@ -54,7 +53,7 @@ progress_reporter:
   _target_: ray.tune.CLIReporter
   metric_columns:
     - valid/recon
-    - epoch
+    - cur_epoch
   sort_by_metric: True
 
 hydra:

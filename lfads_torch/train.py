@@ -58,18 +58,17 @@ def train(overrides: dict, checkpoint_dir: str = None):
 
     # Init lightning trainer
     log.info(f"Instantiating trainer <{config.trainer._target_}>")
-    resume_from_checkpoint = (
-        path.join(checkpoint_dir, "checkpoint") if checkpoint_dir is not None else None
-    )
     trainer: pl.Trainer = instantiate(
         config.trainer,
         gpus=int(torch.cuda.is_available()),
         callbacks=callbacks,
         logger=logger,
-        resume_from_checkpoint=resume_from_checkpoint,
         _convert_="partial",
     )
-
+    # TODO - manually load state_dict?
+    ckpt_path = (
+        path.join(checkpoint_dir, "checkpoint") if checkpoint_dir is not None else None
+    )
     # Train the model
     log.info("Starting training.")
-    trainer.fit(model=model, datamodule=datamodule)
+    trainer.fit(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
