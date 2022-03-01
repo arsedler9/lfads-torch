@@ -15,7 +15,6 @@ pre-commit install
 - Hyperparameter validation
 - Hyperparameter updates for PBT
 - Low-dimensional readin layers (and multisession)
-- Autoregressive controller output prior with Monte Carlo KL (+ others?)
 - Encoder-only retraining
 - Exponentially-smoothed reconstruction metrics
 # TODO

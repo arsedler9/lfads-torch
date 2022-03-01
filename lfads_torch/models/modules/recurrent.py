@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from .initializers import init_gru_cell_, init_variance_scaling_
+from .initializers import init_gru_cell_
 
 
 class ClippedGRUCell(nn.GRUCell):
@@ -63,6 +63,7 @@ class BidirectionalClippedGRU(nn.Module):
         input_bwd = torch.flip(input, [1])
         output_fwd, hn_fwd = self.fwd_gru(input_fwd, h0_fwd)
         output_bwd, hn_bwd = self.bwd_gru(input_bwd, h0_bwd)
+        output_bwd = torch.flip(output_bwd, [1])
         output = torch.cat([output_fwd, output_bwd], dim=2)
         h_n = torch.cat([hn_fwd, hn_bwd], dim=1)
         return output, h_n
