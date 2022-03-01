@@ -8,7 +8,7 @@ from omegaconf import DictConfig, OmegaConf
 logger = logging.getLogger(__name__)
 
 
-@hydra.main(config_path="configs/", config_name="multi.yaml")
+@hydra.main(config_path="config_run/", config_name="multi_run.yaml")
 def main(config: DictConfig):
     print(OmegaConf.to_yaml(config))
     from lfads_torch.train import train

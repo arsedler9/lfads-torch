@@ -2,7 +2,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 
-@hydra.main(config_path="configs/", config_name="single.yaml")
+@hydra.main(config_path="config_run/", config_name="single_run.yaml")
 def main(config: DictConfig):
 
     # Imports should be nested inside @hydra.main to optimize tab completion

@@ -1,6 +1,6 @@
 import logging
 from os import path
-from typing import List, Optional
+from typing import List
 
 import pytorch_lightning as pl
 import torch
@@ -25,7 +25,7 @@ def train(overrides: dict, checkpoint_dir: str = None):
     overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]
 
     # Compose the train config
-    with initialize(config_path="../configs/", job_name="train"):
+    with initialize(config_path="../config_train/", job_name="train"):
         config = compose(config_name=config_train, overrides=overrides)
 
     # Set seed for random number generators in pytorch, numpy and python.random
