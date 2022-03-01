@@ -34,7 +34,6 @@ ic_prior:
   mean: 0
   variance: 0.1
   shape: ${model.ic_dim}
-sample_posteriors: True
 ic_post_var_min: 1.0e-4
 
 # --------- misc --------- #

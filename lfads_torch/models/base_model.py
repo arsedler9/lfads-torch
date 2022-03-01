@@ -47,7 +47,6 @@ class LFADS(pl.LightningModule):
         sv_rate: float,
         sv_seed: int,
         reconstruction: recons.Reconstruction,
-        sample_posteriors: bool,
         co_prior: nn.Module,
         ic_prior: nn.Module,
         ic_post_var_min: float,
@@ -94,14 +93,13 @@ class LFADS(pl.LightningModule):
         if self.use_con:
             self.co_prior = co_prior
 
-    def forward(self, data, ext_input, output_means=True):
-        hps = self.hparams
+    def forward(self, data, ext_input, sample_posteriors=False, output_means=True):
         # Pass the data through the encoders
         ic_mean, ic_std, ci = self.encoder(data)
         # Create the posterior distribution over initial conditions
         ic_post = Independent(Normal(ic_mean, ic_std), 1)
         # Choose to take a sample or to pass the mean
-        ic_samp = ic_post.rsample() if hps.sample_posteriors else ic_mean
+        ic_samp = ic_post.rsample() if sample_posteriors else ic_mean
         # Unroll the decoder to estimate latent states
         (
             gen_init,
@@ -165,6 +163,7 @@ class LFADS(pl.LightningModule):
         output_params, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
             cd_data,
             ext_input,
+            sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss
@@ -222,6 +221,7 @@ class LFADS(pl.LightningModule):
         output_params, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
             sv_data,
             ext_input,
+            sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss

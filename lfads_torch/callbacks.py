@@ -62,8 +62,11 @@ class RasterPlot(pl.Callback):
         dataloader = trainer.datamodule.val_dataloader()
         data, sv_mask, ext, truth = next(iter(dataloader))
         # Compute model output
-        ext = ext.to(pl_module.device)
-        means, *_, inputs, _ = pl_module(data.to(pl_module.device), ext)
+        means, *_, inputs, _ = pl_module(
+            data.to(pl_module.device),
+            ext.to(pl_module.device),
+            sample_posteriors=False,
+        )
         # Convert everything to numpy
         data = data.detach().cpu().numpy()
         truth = truth.detach().cpu().numpy()
@@ -80,6 +83,7 @@ class RasterPlot(pl.Callback):
             len(plot_arrays),
             self.n_samples,
             sharex=True,
+            sharey="row",
             figsize=(3 * self.n_samples, 10),
             gridspec_kw={"height_ratios": height_ratios},
         )
