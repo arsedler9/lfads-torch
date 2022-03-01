@@ -1,7 +1,7 @@
 defaults:
-  - model: default
-  - datamodule: default
-  - callbacks: default
+  - model: autolfads_chaotic
+  - datamodule: autolfads_chaotic
+  - callbacks: debug
   - logger: default
   # enable color logging
   - override hydra/hydra_logging: colorlog
@@ -15,3 +15,4 @@ trainer:
   gradient_clip_val: 200
   max_epochs: 10_000
   log_every_n_steps: 5
+  # track_grad_norm: 2

@@ -20,7 +20,7 @@ ray_tune_run:
   # search_alg:
   #   _target_: ray.tune.suggest.basic_variant.BasicVariantGenerator
   #   random_state: 0
-  num_samples: 48
+  num_samples: 30
   # With `name`, a hack to get `ray.tune` to use the directory created by `hydra`.
   local_dir: ".."
   verbose: 1
