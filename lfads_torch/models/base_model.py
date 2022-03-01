@@ -109,7 +109,7 @@ class LFADS(pl.LightningModule):
             co_stds,
             gen_inputs,
             factors,
-        ) = self.decoder(ic_samp, ci, ext_input)
+        ) = self.decoder(ic_samp, ci, ext_input, sample_posteriors=sample_posteriors)
         # Convert the factors representation into output distribution parameters
         output_params = self.output_linear(factors)
         # Separate parameters of the output distribution

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch.distributions import Independent, Normal
 
-from .initializers import init_gru_cell_, init_variance_scaling_
+from .initializers import init_variance_scaling_
 from .recurrent import ClippedGRUCell
 
 
@@ -53,7 +53,7 @@ class DecoderCell(nn.Module):
         # Keep track of the input dimensions
         self.input_dims = [2 * hps.ci_enc_dim, hps.ext_input_dim]
 
-    def forward(self, input, h_0):
+    def forward(self, input, h_0, sample_posteriors=True):
         hps = self.hparams
 
         # Split the state up into variables of interest
@@ -72,14 +72,9 @@ class DecoderCell(nn.Module):
             co_params = self.co_linear(con_state)
             co_mean, co_logstd = torch.split(co_params, hps.co_dim, dim=1)
             co_std = torch.exp(co_logstd)
-            # Generate controller outputs
-            if hps.sample_posteriors:
-                # Sample from the distribution of controller outputs
-                co_post = Independent(Normal(co_mean, co_std), 1)
-                con_output = co_post.rsample()
-            else:
-                # Pass mean in deterministic mode
-                con_output = co_mean
+            # Sample from the distribution of controller outputs
+            co_post = Independent(Normal(co_mean, co_std), 1)
+            con_output = co_post.rsample() if sample_posteriors else co_mean
             # Combine controller output with any external inputs
             gen_input = torch.cat([con_output, ext_input_step], dim=1)
         else:
@@ -102,12 +97,12 @@ class DecoderRNN(nn.Module):
         super().__init__()
         self.cell = DecoderCell(hparams=hparams)
 
-    def forward(self, input, h_0):
+    def forward(self, input, h_0, sample_posteriors=True):
         hidden = h_0
         input = torch.transpose(input, 0, 1)
         output = []
         for input_step in input:
-            hidden = self.cell(input_step, hidden)
+            hidden = self.cell(input_step, hidden, sample_posteriors=sample_posteriors)
             output.append(hidden)
         output = torch.stack(output, dim=1)
         return output, hidden
@@ -127,7 +122,7 @@ class Decoder(nn.Module):
         # Initial hidden state for controller
         self.con_h0 = nn.Parameter(torch.zeros((1, hps.con_dim), requires_grad=True))
 
-    def forward(self, ic_samp, ci, ext_input):
+    def forward(self, ic_samp, ci, ext_input, sample_posteriors=True):
         hps = self.hparams
 
         # Get size of current batch (may be different than hps.batch_size)
@@ -153,7 +148,9 @@ class Decoder(nn.Module):
             ],
             dim=1,
         )
-        states, _ = self.rnn(dec_rnn_input, dec_rnn_h0)
+        states, _ = self.rnn(
+            dec_rnn_input, dec_rnn_h0, sample_posteriors=sample_posteriors
+        )
         split_states = torch.split(states, self.rnn.cell.state_dims, dim=2)
         dec_output = (gen_init, *split_states)
 
