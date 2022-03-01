@@ -13,9 +13,16 @@ pre-commit install
 
 # NotImplemented
 - Hyperparameter validation
-- Hyperparameter updates for PBT
 - Low-dimensional readin layers (and multisession)
 - Encoder-only retraining
 - Exponentially-smoothed reconstruction metrics
 # TODO
-- Most recent and best reconstruction checkpoints
+## PBT
+- Plotting hyperparameter progressions
+- PBT stopping criterion
+
+# Known Issues
+- A bug within `ray.tune` keeps all trials `PAUSED` when any trial is `TERMINATED` in PBT.
+- Using the `burn_in_period` argument to the `PopulationBasedTraining` `scheduler` keeps all trials `PAUSED` after first perturb.
+- PTL prints warning messages about restoring from mid-epoch checkpoints, but they should be saved after validation epoch.
+- Using `TuneReportCheckpointCallback(..., on='train_end')` fails.

@@ -12,14 +12,15 @@ config_train: pbt_train.yaml
 ray_tune_run:
   name: ${run_tag}
   resources_per_trial:
-    cpu: 2
-    gpu: 0.3
+    cpu: 3
+    gpu: 0.5
   # TODO: Debug for deterministic samples
   # search_alg:
   #   _target_: ray.tune.suggest.basic_variant.BasicVariantGenerator
   #   random_state: 0
-  num_samples: 30
+  num_samples: 20
   reuse_actors: True
+  keep_checkpoints_num: 1
   # With `name`, a hack to get `ray.tune` to use the directory created by `hydra`.
   local_dir: ".."
   verbose: 1

@@ -14,8 +14,8 @@ ray_tune_run:
   mode: min
   name: ${run_tag}
   resources_per_trial:
-    cpu: 2
-    gpu: 0.3
+    cpu: 3
+    gpu: 0.5
   # TODO: Debug for deterministic samples
   # search_alg:
   #   _target_: ray.tune.suggest.basic_variant.BasicVariantGenerator

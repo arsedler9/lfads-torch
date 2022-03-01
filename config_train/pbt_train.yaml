@@ -1,7 +1,6 @@
 defaults:
   - model: autolfads_chaotic
   - datamodule: autolfads_chaotic
-  - callbacks: default
   - logger: default
   # enable color logging
   - override hydra/hydra_logging: colorlog
@@ -27,8 +26,14 @@ callbacks:
       - valid/recon
       - cur_epoch
     filename: checkpoint
-    # TODO: `train_end` doesn't work for some reason, but `validation_end` seems to save within epochs?
     "on": validation_end
+  learning_rate_monitor:
+    _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: epoch
+  model_checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: "."
+    filename: last
 
 logger:
   tensorboard_logger:
