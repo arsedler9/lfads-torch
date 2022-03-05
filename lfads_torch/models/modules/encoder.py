@@ -1,6 +1,6 @@
 import torch
+import torch.nn.functional as F
 from torch import nn
-from torch.distributions import Independent, Normal
 
 from .initializers import init_variance_scaling_
 from .recurrent import BidirectionalClippedGRU
@@ -17,7 +17,7 @@ class Encoder(nn.Module):
         )
         # Initial condition encoder
         self.ic_enc = BidirectionalClippedGRU(
-            input_size=hps.data_dim,
+            input_size=hps.encod_data_dim,
             hidden_size=hps.ic_enc_dim,
             clip_value=hps.cell_clip,
         )
@@ -39,7 +39,7 @@ class Encoder(nn.Module):
             )
             # CI encoder
             self.ci_enc = BidirectionalClippedGRU(
-                input_size=hps.data_dim,
+                input_size=hps.encod_data_dim,
                 hidden_size=hps.ci_enc_dim,
                 clip_value=hps.cell_clip,
             )
@@ -48,8 +48,8 @@ class Encoder(nn.Module):
 
     def forward(self, data: torch.Tensor):
         hps = self.hparams
-        assert data.shape[1] == hps.seq_len, (
-            f"Sequence length specified in HPs ({hps.seq_len}) "
+        assert data.shape[1] == hps.encod_seq_len, (
+            f"Sequence length specified in HPs ({hps.encod_seq_len}) "
             f"must match data dim 1 ({data.shape[1]})."
         )
         data_drop = self.dropout(data)
@@ -72,11 +72,15 @@ class Encoder(nn.Module):
             ci, _ = self.ci_enc(ci_enc_data, self.ci_enc_h0)
             # Add a lag to the controller input
             ci_fwd, ci_bwd = torch.split(ci, hps.ci_enc_dim, dim=2)
-            ci_fwd = nn.functional.pad(ci_fwd, (0, 0, hps.ci_lag, 0, 0, 0))
-            ci_bwd = nn.functional.pad(ci_bwd, (0, 0, 0, hps.ci_lag, 0, 0))
-            ci_len = hps.seq_len - hps.ic_enc_seq_len
+            ci_fwd = F.pad(ci_fwd, (0, 0, hps.ci_lag, 0, 0, 0))
+            ci_bwd = F.pad(ci_bwd, (0, 0, 0, hps.ci_lag, 0, 0))
+            ci_len = hps.encod_seq_len - hps.ic_enc_seq_len
             ci = torch.cat([ci_fwd[:, :ci_len, :], ci_bwd[:, -ci_len:, :]], dim=2)
         else:
             ci = torch.zeros_like(ci_enc_data)[:, :, : 2 * hps.ci_enc_dim]
+        # Add extra zeros if necessary for forward prediction
+        fwd_steps = hps.recon_seq_len - hps.encod_seq_len
+        if fwd_steps > 0:
+            ci = F.pad(ci, (0, 0, 0, fwd_steps, 0, 0))
 
         return ic_mean, ic_std, ci

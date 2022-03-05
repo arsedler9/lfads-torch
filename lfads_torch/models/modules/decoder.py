@@ -130,7 +130,11 @@ class Decoder(nn.Module):
         # Calculate initial generator state and pass it to the RNN with dropout rate
         gen_init = self.ic_to_g0(ic_samp)
         gen_init_drop = self.dropout(gen_init)
-        # Perform dropout on the external inputs
+        # Pad external inputs if necessary and perform dropout
+        fwd_steps = hps.recon_seq_len - ext_input.shape[1]
+        if fwd_steps > 0:
+            pad = torch.zeros(batch_size, fwd_steps, hps.ext_input_dim)
+            ext_input = torch.cat([ext_input, pad.to(ext_input.device)], axis=1)
         ext_input_drop = self.dropout(ext_input)
         # Prepare the decoder inputs and and initial state of decoder RNN
         dec_rnn_input = torch.cat([ci, ext_input_drop], dim=2)

@@ -1,6 +1,16 @@
 import torch
-from torch import nn
+import torch.nn.functional as F
 from torch.distributions import Bernoulli
+
+
+def pad_mask(mask, data, value):
+    """Adds padding to I/O masks for CD and SV in cases where
+    reconstructed data is not the same shape as the input data.
+    """
+    t_forward = data.shape[1] - mask.shape[1]
+    n_heldout = data.shape[2] - mask.shape[2]
+    pad_shape = (0, n_heldout, 0, t_forward)
+    return F.pad(mask, pad_shape, value=value)
 
 
 class CoordinatedDropout:
@@ -34,9 +44,11 @@ class CoordinatedDropout:
         return cd_input
 
     def process_outputs(self, output_data):
+        # Expand mask, but don't block gradients
+        grad_mask = pad_mask(self.grad_mask, output_data, 1.0)
         # Block gradients with respect to the masked outputs
-        grad_data = output_data * self.grad_mask
-        nograd_data = (output_data * (1 - self.grad_mask)).detach()
+        grad_data = output_data * grad_mask
+        nograd_data = (output_data * (1 - grad_mask)).detach()
         cd_output = grad_data + nograd_data
 
         return cd_output
@@ -66,9 +78,16 @@ class SampleValidation:
             recon_heldin = recon_loss
             recon_heldout_agg = torch.tensor(float("nan"))
         else:
-            # Mask elements and rescale so means are comparable
-            recon_heldin = recon_loss * sv_mask / (1 - self.sv_rate)
-            recon_heldout_masked = recon_loss * (1 - sv_mask) / self.sv_rate
+            # Rescale so means are comparable
+            heldin_mask = sv_mask / (1 - self.sv_rate)
+            heldout_mask = (1 - sv_mask) / self.sv_rate
+            # Apply the heldin mask - expand the mask as necessary
+            heldin_mask = pad_mask(heldin_mask, recon_loss, value=1.0)
+            recon_heldin = recon_loss * heldin_mask
+            # Apply the heldout mask - only include points with encoder input
+            _, t_enc, n_enc = heldout_mask.shape
+            encod_recon_loss = recon_loss[:, :t_enc, :n_enc]
+            recon_heldout_masked = encod_recon_loss * heldout_mask
             # Aggregate the heldout cost for logging
             if not self.recon_reduce_mean:
                 recon_heldout_masked = torch.sum(recon_heldout_masked, dim=(1, 2))

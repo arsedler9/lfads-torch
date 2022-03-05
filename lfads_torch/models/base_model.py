@@ -29,9 +29,11 @@ from .modules.overfitting import CoordinatedDropout, SampleValidation
 class LFADS(pl.LightningModule):
     def __init__(
         self,
-        data_dim: int,
+        encod_data_dim: int,
+        recon_data_dim: int,
+        encod_seq_len: int,
+        recon_seq_len: int,
         ext_input_dim: int,
-        seq_len: int,
         ic_enc_seq_len: int,
         ic_enc_dim: int,
         ci_enc_dim: int,
@@ -86,7 +88,7 @@ class LFADS(pl.LightningModule):
         # Create object to manage reconstruction
         self.recon = reconstruction
         # Create the mapping from factors to output parameters
-        self.output_linear = nn.Linear(fac_dim, data_dim * self.recon.n_params)
+        self.output_linear = nn.Linear(fac_dim, recon_data_dim * self.recon.n_params)
         init_variance_scaling_(self.output_linear.weight, fac_dim)
         # Store the trainable priors
         self.ic_prior = ic_prior
@@ -120,11 +122,11 @@ class LFADS(pl.LightningModule):
         # Return the parameter estimates and all intermediate activations
         return (
             output_params,
+            factors,
             ic_mean,
             ic_std,
             co_means,
             co_stds,
-            factors,
             gen_states,
             gen_init,
             gen_inputs,
@@ -154,20 +156,20 @@ class LFADS(pl.LightningModule):
 
     def training_step(self, batch, batch_ix):
         hps = self.hparams
-        data, sv_mask, ext_input, truth = batch
+        encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
         # Apply sample validation processing to the input data
-        sv_data = self.samp_validation.process_inputs(data, sv_mask)
+        sv_data = self.samp_validation.process_inputs(encod_data, sv_mask)
         # Apply coordinated dropout processing to the input data
         cd_data = self.coord_dropout.process_inputs(sv_data)
         # Perform the forward pass
-        output_params, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
+        output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
             cd_data,
             ext_input,
             sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss
-        recon_all = self.recon.compute_loss(data, output_params)
+        recon_all = self.recon.compute_loss(recon_data, output_params)
         # Apply coordinated dropout processing to the recon costs
         recon_all = self.coord_dropout.process_outputs(recon_all)
         # Apply sample validation processing to the recon costs
@@ -214,18 +216,18 @@ class LFADS(pl.LightningModule):
 
     def validation_step(self, batch, batch_ix):
         hps = self.hparams
-        data, sv_mask, ext_input, truth = batch
+        encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
         # Apply sample validation processing to the input data
-        sv_data = self.samp_validation.process_inputs(data, sv_mask)
+        sv_data = self.samp_validation.process_inputs(encod_data, sv_mask)
         # Perform the forward pass
-        output_params, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
+        output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
             sv_data,
             ext_input,
             sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss
-        recon_all = self.recon.compute_loss(data, output_params)
+        recon_all = self.recon.compute_loss(recon_data, output_params)
         # Apply sample validation processing to the recon costs
         recon_all = self.samp_validation.process_outputs(
             recon_all, sv_mask, self.log, "valid"
