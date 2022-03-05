@@ -3,8 +3,32 @@ import io
 import matplotlib.pyplot as plt
 import numpy as np
 import pytorch_lightning as pl
+import torch
 
 plt.switch_backend("Agg")
+
+
+def get_tensorboard_summary_writer(writers):
+    """Gets the TensorBoard SummaryWriter from a logger
+    or logger collection to allow writing of images.
+
+    Parameters
+    ----------
+    writers : obj or list[obj]
+        An object or list of objects to search for the
+        SummaryWriter.
+
+    Returns
+    -------
+    torch.utils.tensorboard.writer.SummaryWriter
+        The SummaryWriter object.
+    """
+    writer_list = writers if isinstance(writers, list) else [writers]
+    for writer in writer_list:
+        if isinstance(writer, torch.utils.tensorboard.writer.SummaryWriter):
+            return writer
+    else:
+        return None
 
 
 def fig_to_rgb_array(fig):
@@ -28,6 +52,36 @@ def fig_to_rgb_array(fig):
     im = fig_data.reshape((int(h), int(w), -1))
     plt.close()
     return im
+
+
+def batch_fwd(model, batch):
+    """Performs the forward pass for a given data batch.
+
+    Parameters
+    ----------
+    model : lfads_torch.models.base_model.LFADS
+        The model to pass data through.
+    batch : tuple[torch.Tensor]
+        A tuple of batched input tensors.
+
+    Returns
+    -------
+    tuple[torch.Tensor]
+        A tuple of batched output tensors.
+    """
+    input_data, ext = batch[0], batch[3]
+    return model(
+        input_data.to(model.device),
+        ext.to(model.device),
+        sample_posteriors=False,
+    )
+
+
+def get_batch_fwd():
+    """Utility function for accessing the `batch_fwd` function
+    from `hydra` configs.
+    """
+    return batch_fwd
 
 
 class RasterPlot(pl.Callback):
@@ -58,25 +112,29 @@ class RasterPlot(pl.Callback):
         """
         if (trainer.current_epoch % self.log_every_n_epochs) != 0:
             return
+        # Check for the TensorBoard SummaryWriter
+        writer = get_tensorboard_summary_writer(trainer.logger.experiment)
+        if writer is None:
+            return
         # Get data samples
         dataloader = trainer.datamodule.val_dataloader()
-        data, sv_mask, ext, truth = next(iter(dataloader))
+        encod_data, recon_data, _, ext, truth, *_ = next(iter(dataloader))
         # Compute model output
         means, *_, inputs, _ = pl_module(
-            data.to(pl_module.device),
+            encod_data.to(pl_module.device),
             ext.to(pl_module.device),
             sample_posteriors=False,
         )
         # Convert everything to numpy
-        data = data.detach().cpu().numpy()
+        recon_data = recon_data.detach().cpu().numpy()
         truth = truth.detach().cpu().numpy()
         means = means.detach().cpu().numpy()
         inputs = inputs.detach().cpu().numpy()
         if np.all(np.isnan(truth)):
-            plot_arrays = [data, means, inputs]
+            plot_arrays = [recon_data, means, inputs]
             height_ratios = [3, 3, 1]
         else:
-            plot_arrays = [data, truth, means, inputs]
+            plot_arrays = [recon_data, truth, means, inputs]
             height_ratios = [3, 3, 3, 1]
         # Create subplots
         fig, axes = plt.subplots(
@@ -93,7 +151,4 @@ class RasterPlot(pl.Callback):
         plt.tight_layout()
         # Log the plot to tensorboard
         im = fig_to_rgb_array(fig)
-        # TODO: make this more robust
-        trainer.logger.experiment[1].add_image(
-            "raster_plot", im, trainer.global_step, dataformats="HWC"
-        )
+        writer.add_image("raster_plot", im, trainer.global_step, dataformats="HWC")
