@@ -39,7 +39,7 @@ callbacks:
 posterior_sampling:
   _target_: lfads_torch.analysis.run_posterior_sampling
   filename: lfads_output.h5
-  best_ckpt: true
+  best_ckpt: false
   num_samples: 50
 
 logger:

@@ -1,0 +1,29 @@
+model:
+  dropout_rate:
+    _target_: ray.tune.uniform
+    lower: 0.0
+    upper: 0.7
+  l2_ic_enc_scale:
+    _target_: ray.tune.loguniform
+    lower: 1.0e-5
+    upper: 1.0e-3
+  l2_ci_enc_scale:
+    _target_: ray.tune.loguniform
+    lower: 1.0e-5
+    upper: 1.0e-3
+  l2_gen_scale:
+    _target_: ray.tune.loguniform
+    lower: 1.0e-5
+    upper: 1.0e-0
+  l2_con_scale:
+    _target_: ray.tune.loguniform
+    lower: 1.0e-5
+    upper: 1.0e-0
+  kl_co_scale:
+    _target_: ray.tune.loguniform
+    lower: 1.0e-6
+    upper: 1.0e-3
+  kl_ic_scale:
+    _target_: ray.tune.loguniform
+    lower: 1.0e-6
+    upper: 1.0e-3

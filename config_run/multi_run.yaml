@@ -1,5 +1,6 @@
 defaults:
   - scheduler: fifo
+  - search_space: autolfads_chaotic
   # Use colored logger
   - override hydra/job_logging: colorlog
   - override hydra/hydra_logging: colorlog
@@ -24,37 +25,6 @@ ray_tune_run:
   # With `name`, a hack to get `ray.tune` to use the directory created by `hydra`.
   local_dir: ".."
   verbose: 1
-
-search_space:
-  model:
-    dropout_rate:
-      _target_: ray.tune.uniform
-      lower: 0.0
-      upper: 0.7
-    l2_ic_enc_scale:
-      _target_: ray.tune.loguniform
-      lower: 1.0e-5
-      upper: 1.0e-3
-    l2_ci_enc_scale:
-      _target_: ray.tune.loguniform
-      lower: 1.0e-5
-      upper: 1.0e-3
-    l2_gen_scale:
-      _target_: ray.tune.loguniform
-      lower: 1.0e-5
-      upper: 1.0e-0
-    l2_con_scale:
-      _target_: ray.tune.loguniform
-      lower: 1.0e-5
-      upper: 1.0e-0
-    kl_co_scale:
-      _target_: ray.tune.loguniform
-      lower: 1.0e-6
-      upper: 1.0e-3
-    kl_ic_scale:
-      _target_: ray.tune.loguniform
-      lower: 1.0e-6
-      upper: 1.0e-3
 
 progress_reporter:
   _target_: ray.tune.CLIReporter
