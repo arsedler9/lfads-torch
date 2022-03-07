@@ -1,7 +1,7 @@
 defaults:
-  - model: autolfads_chaotic
-  - datamodule: autolfads_chaotic
-  - callbacks: debug
+  - model: nlb_mc_maze
+  - datamodule: nlb_mc_maze
+  - callbacks: nlb
   - logger: default
   # enable color logging
   - override hydra/hydra_logging: colorlog
@@ -13,6 +13,29 @@ seed: 0
 trainer:
   _target_: pytorch_lightning.Trainer
   gradient_clip_val: 200
-  max_epochs: 10_000
+  max_epochs: 1_000
   log_every_n_steps: 5
   # track_grad_norm: 2
+
+callbacks:
+  model_checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    monitor: valid/recon
+    mode: min
+    save_top_k: 1
+    save_last: True
+    verbose: False
+    dirpath: "."
+    auto_insert_metric_name: True
+  early_stopping:
+    _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: valid/recon
+    mode: min
+    patience: 200
+    min_delta: 0
+
+posterior_sampling:
+  _target_: lfads_torch.analysis.run_posterior_sampling
+  filename: lfads_output.h5
+  best_ckpt: true
+  num_samples: 50

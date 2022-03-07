@@ -7,9 +7,9 @@ from torch.distributions.transforms import AffineTransform
 class MultivariateNormal(nn.Module):
     def __init__(
         self,
-        mean,
-        variance,
-        shape,
+        mean: float,
+        variance: float,
+        shape: int,
     ):
         super().__init__()
         # Create distribution parameter tensors
@@ -32,9 +32,9 @@ class MultivariateNormal(nn.Module):
 class AutoregressiveMultivariateNormal(nn.Module):
     def __init__(
         self,
-        tau,
-        nvar,
-        shape,
+        tau: float,
+        nvar: float,
+        shape: int,
     ):
         super().__init__()
         # Create the distribution parameters

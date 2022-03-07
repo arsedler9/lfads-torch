@@ -1,6 +1,7 @@
 defaults:
-  - model: autolfads_chaotic
-  - datamodule: autolfads_chaotic
+  - model: nlb_mc_maze
+  - datamodule: nlb_mc_maze
+  - callbacks: nlb
   - logger: default
   # enable color logging
   - override hydra/hydra_logging: colorlog
@@ -19,6 +20,10 @@ trainer:
   enable_model_summary: False
 
 callbacks:
+  model_checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: "."
+    filename: last
   tune_report_checkpoint_callback:
     _target_: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
     metrics:
@@ -30,10 +35,12 @@ callbacks:
   learning_rate_monitor:
     _target_: pytorch_lightning.callbacks.LearningRateMonitor
     logging_interval: epoch
-  model_checkpoint:
-    _target_: pytorch_lightning.callbacks.ModelCheckpoint
-    dirpath: "."
-    filename: last
+
+posterior_sampling:
+  _target_: lfads_torch.analysis.run_posterior_sampling
+  filename: lfads_output.h5
+  best_ckpt: true
+  num_samples: 50
 
 logger:
   tensorboard_logger:

@@ -5,7 +5,7 @@ from typing import List
 import pytorch_lightning as pl
 import torch
 from hydra import compose, initialize
-from hydra.utils import instantiate
+from hydra.utils import call, instantiate
 from pytorch_lightning.loggers import LightningLoggerBase
 
 from .utils import flatten
@@ -72,3 +72,5 @@ def train(overrides: dict, checkpoint_dir: str = None):
     # Train the model
     log.info("Starting training.")
     trainer.fit(model=model, datamodule=datamodule, ckpt_path=ckpt_path)
+    # Run the posterior sampling function
+    call(config.posterior_sampling, model=model, trainer=trainer)

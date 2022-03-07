@@ -54,36 +54,6 @@ def fig_to_rgb_array(fig):
     return im
 
 
-def batch_fwd(model, batch):
-    """Performs the forward pass for a given data batch.
-
-    Parameters
-    ----------
-    model : lfads_torch.models.base_model.LFADS
-        The model to pass data through.
-    batch : tuple[torch.Tensor]
-        A tuple of batched input tensors.
-
-    Returns
-    -------
-    tuple[torch.Tensor]
-        A tuple of batched output tensors.
-    """
-    input_data, ext = batch[0], batch[3]
-    return model(
-        input_data.to(model.device),
-        ext.to(model.device),
-        sample_posteriors=False,
-    )
-
-
-def get_batch_fwd():
-    """Utility function for accessing the `batch_fwd` function
-    from `hydra` configs.
-    """
-    return batch_fwd
-
-
 class RasterPlot(pl.Callback):
     """Plots validation spiking data side-by-side with
     inferred inputs and rates and logs to tensorboard.
