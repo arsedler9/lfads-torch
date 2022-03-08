@@ -34,6 +34,12 @@ ray_tune_run:
   verbose: 1
   reuse_actors: True
   keep_checkpoints_num: 1
+  stop:
+    _target_: ray.tune.stopper.ExperimentPlateauStopper
+    metric: valid/recon_smth
+    std: 1.0e-3
+    top: 10
+    patience: 100
 
 hydra:
   run:
