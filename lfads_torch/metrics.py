@@ -1,4 +1,5 @@
 import torch
+from torchmetrics import Metric
 
 
 def r2_score(preds, targets):
@@ -10,3 +11,28 @@ def r2_score(preds, targets):
     ss_tot = torch.sum((targets - target_mean) ** 2, dim=0)
     ss_res = torch.sum((targets - preds) ** 2, dim=0)
     return torch.mean(1 - ss_res / ss_tot)
+
+
+class ExpSmoothedMetric(Metric):
+    """Averages within epochs and exponentially smooths between epochs."""
+
+    def __init__(self, coef=0.7, **kwargs):
+        super().__init__(**kwargs)
+        self.coef = coef
+        # Automatically reset by torchmetrics after `compute` is called
+        self.add_state("value", default=torch.tensor(0.0))
+        self.add_state("count", default=torch.tensor(0))
+        # `prev` must be immune to `reset`
+        self.prev = torch.tensor(float("nan"))
+
+    def update(self, value):
+        self.value += value
+        self.count += 1
+
+    def compute(self):
+        curr = self.value / self.count
+        if torch.isnan(self.prev):
+            self.prev = curr
+        smth = (1 - self.coef) * self.prev + self.coef * curr
+        self.prev = smth
+        return smth

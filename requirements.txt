@@ -1,4 +1,5 @@
 torch
+torchmetrics==0.7.2
 pytorch-lightning==1.5.10
 hydra-core
 h5py

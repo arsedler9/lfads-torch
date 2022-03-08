@@ -27,8 +27,7 @@ callbacks:
   tune_report_checkpoint_callback:
     _target_: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
     metrics:
-      - train/recon
-      - valid/recon
+      - valid/recon_smth
       - cur_epoch
     filename: checkpoint
     "on": validation_end

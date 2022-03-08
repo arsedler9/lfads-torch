@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.distributions import Independent, Normal
 
-from ..metrics import r2_score
+from ..metrics import ExpSmoothedMetric, r2_score
 from .modules import recons
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
@@ -80,6 +80,8 @@ class LFADS(pl.LightningModule):
         self.ic_prior = ic_prior
         if self.use_con:
             self.co_prior = co_prior
+        # Create metric for exponentially-smoothed `valid/recon`
+        self.valid_recon_smth = ExpSmoothedMetric()
 
     def forward(self, data, ext_input, sample_posteriors=False, output_means=True):
         # Pass the data through the encoders
@@ -137,7 +139,7 @@ class LFADS(pl.LightningModule):
         return {
             "optimizer": optimizer,
             "lr_scheduler": scheduler,
-            "monitor": "valid/recon",
+            "monitor": "valid/recon_smth",
         }
 
     def training_step(self, batch, batch_ix):
@@ -196,7 +198,7 @@ class LFADS(pl.LightningModule):
             "train/wt_kl/co": co_kl,
             "train/wt_kl/ramp": kl_ramp,
         }
-        self.log_dict(metrics)
+        self.log_dict(metrics, on_step=False, on_epoch=True)
 
         return loss
 
@@ -222,6 +224,7 @@ class LFADS(pl.LightningModule):
         if not hps.recon_reduce_mean:
             recon_all = torch.sum(recon_all, dim=(1, 2))
         recon = torch.mean(recon_all)
+        self.valid_recon_smth.update(recon)
         # Compute the L2 penalty on recurrent weights
         l2 = compute_l2_penalty(self, self.hparams)
         l2_ramp = (self.current_epoch - hps.l2_start_epoch) / (
@@ -244,6 +247,7 @@ class LFADS(pl.LightningModule):
         metrics = {
             "valid/loss": loss,
             "valid/recon": recon,
+            "valid/recon_smth": self.valid_recon_smth,
             "valid/r2": r2,
             "valid/wt_l2": l2,
             "valid/wt_l2/ramp": l2_ramp,
@@ -254,9 +258,6 @@ class LFADS(pl.LightningModule):
             "hp_metric": recon,
             "cur_epoch": float(self.current_epoch),
         }
-        self.log_dict(metrics)
+        self.log_dict(metrics, on_step=False, on_epoch=True)
 
         return loss
-
-    def update_hparams(self, hparams):
-        raise NotImplementedError
