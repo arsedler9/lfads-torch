@@ -5,8 +5,6 @@ import ray
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 
-from lfads_torch.tune_utils import trial_dirname_creator
-
 logger = logging.getLogger(__name__)
 
 
@@ -17,8 +15,6 @@ def main(config: DictConfig):
 
     # Instantiate the scheduler
     scheduler = instantiate(config.scheduler, _convert_="all")
-    # Instantiate the progress reporter
-    progress_reporter = instantiate(config.progress_reporter, _convert_="all")
     # Instantiate the config search space
     search_space = instantiate(config.search_space, _convert_="all")
     # Specify the train config to use
@@ -26,14 +22,13 @@ def main(config: DictConfig):
     # Clear the GlobalHydra instance so we can compose again in `train`
     hydra.core.global_hydra.GlobalHydra.instance().clear()
     # Run the search with `ray.tune`
+    ray_tune_run_params = instantiate(config["ray_tune_run"])
     # ray.init(local_mode=True)
     analysis = ray.tune.run(
         train,
         config=search_space,
         scheduler=scheduler,
-        progress_reporter=progress_reporter,
-        trial_dirname_creator=trial_dirname_creator,
-        **config["ray_tune_run"],
+        **ray_tune_run_params,
     )
     print(f"Best hyperparameters: {analysis.best_config}")
 
