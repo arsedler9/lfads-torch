@@ -5,6 +5,8 @@ import ray
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 
+from lfads_torch.tune_utils import trial_dirname_creator
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +32,7 @@ def main(config: DictConfig):
         config=search_space,
         scheduler=scheduler,
         progress_reporter=progress_reporter,
+        trial_dirname_creator=trial_dirname_creator,
         **config["ray_tune_run"],
     )
     print(f"Best hyperparameters: {analysis.best_config}")

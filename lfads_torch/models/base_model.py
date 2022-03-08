@@ -11,20 +11,6 @@ from .modules.initializers import init_variance_scaling_
 from .modules.l2 import compute_l2_penalty
 from .modules.overfitting import CoordinatedDropout, SampleValidation
 
-# def validate_hparams(hparams: dict):
-#     hps = dotdict(hparams)
-
-#     # Check seq_len and ic_enc_seq_len logic
-#     assert hps.seq_len > hps.ic_enc_seq_len
-#     hparams['ic_enc_seq_len'] = max(hps.ic_enc_seq_len, 0)
-#     if hps.ic_enc_seq_len > 0:
-#         print(f"Using the first {hps.ic_enc_seq_len} steps "
-#         "to encode initial condition. Inferring rates for the "
-#         f"remaining {hps.seq_len - hps.ic_enc_seq_len} steps.")
-#     # Decide whether to use the controller
-
-#     assert hparams['ic_enc_seq_len']
-
 
 class LFADS(pl.LightningModule):
     def __init__(

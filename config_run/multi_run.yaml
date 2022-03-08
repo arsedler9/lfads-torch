@@ -11,9 +11,9 @@ runs_home: /snel/share/runs/lfads-torch/testing
 config_train: multi_train.yaml
 
 ray_tune_run:
+  name: ${run_tag}
   metric: valid/recon
   mode: min
-  name: ${run_tag}
   resources_per_trial:
     cpu: 3
     gpu: 0.5
@@ -21,7 +21,7 @@ ray_tune_run:
   # search_alg:
   #   _target_: ray.tune.suggest.basic_variant.BasicVariantGenerator
   #   random_state: 0
-  num_samples: 30
+  num_samples: 20
   # With `name`, a hack to get `ray.tune` to use the directory created by `hydra`.
   local_dir: ".."
   verbose: 1

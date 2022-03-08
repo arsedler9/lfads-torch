@@ -12,7 +12,6 @@ pre-commit install
 ```
 
 # NotImplemented
-- Hyperparameter validation
 - Low-dimensional readin layers (and multisession)
 - Encoder-only retraining
 - Exponentially-smoothed reconstruction metrics
@@ -22,7 +21,6 @@ pre-commit install
 ## PBT
 - Plotting hyperparameter progressions
 - PBT stopping criterion (add `tune.Stopper`)
-- Prevent confusing, long trial filenames with original HPs
 - Binary tournament and corrected perturb
 # Known Issues
 - A bug within `ray.tune` keeps all trials `PAUSED` when any trial is `TERMINATED` in PBT.
@@ -30,3 +28,7 @@ pre-commit install
 - PTL prints warning messages about restoring from mid-epoch checkpoints, but they should be saved after validation epoch.
 - Using `TuneReportCheckpointCallback(..., on='train_end')` fails.
 - `CLIReporter` `sort_by_metric` doesn't seem to sort the table correctly.
+
+# Low-Priority Future Work
+- **Hyperparameter validation**: Checking hyperparameter values to confirm that they are within the valid ranges.
+- **Multi-session modeling**: Modeling multiple sessions at the same
