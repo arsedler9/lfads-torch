@@ -1,6 +1,7 @@
 import logging
 
 import h5py
+import numpy as np
 import torch
 from tqdm import tqdm
 
@@ -45,7 +46,7 @@ def run_posterior_sampling(model, trainer, filename, best_ckpt=False, num_sample
             batch_fwd(model, batch, sample_posteriors=True) for batch in dataloader
         ]
         # Concatenate outputs along the batch dimension
-        return [torch.cat(o) for o in transpose_list(output)]
+        return [torch.cat(o).detach().cpu().numpy() for o in transpose_list(output)]
 
     # Repeatedly get model output for the complete dataset
     logger.info("Running posterior sampling on train data.")
@@ -53,8 +54,8 @@ def run_posterior_sampling(model, trainer, filename, best_ckpt=False, num_sample
     logger.info("Running posterior sampling on valid data.")
     valid_ps = [run_ps_epoch(valid_dl) for _ in tqdm(range(num_samples))]
     # Average across the samples
-    train_pm = [torch.mean(torch.stack(o), dim=0) for o in transpose_list(train_ps)]
-    valid_pm = [torch.mean(torch.stack(o), dim=0) for o in transpose_list(valid_ps)]
+    train_pm = [np.mean(np.stack(o), axis=0) for o in transpose_list(train_ps)]
+    valid_pm = [np.mean(np.stack(o), axis=0) for o in transpose_list(valid_ps)]
     # Save the averages to the output file
     with h5py.File(filename, mode="w") as h5file:
         for prefix, pm in zip(["train_", "valid_"], [train_pm, valid_pm]):
@@ -73,6 +74,6 @@ def run_posterior_sampling(model, trainer, filename, best_ckpt=False, num_sample
                 ],
                 pm,
             ):
-                h5file.create_dataset(prefix + name, data=data.detach().numpy())
+                h5file.create_dataset(prefix + name, data=data)
     # Log message about sucessful completion
     logger.info(f"Posterior averages successfully saved to `{filename}`")
