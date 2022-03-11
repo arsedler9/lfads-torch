@@ -43,10 +43,11 @@ callbacks:
     "on": validation_end
 
 posterior_sampling:
-  _target_: lfads_torch.analysis.run_posterior_sampling
-  filename: lfads_output.h5
   best_ckpt: true
-  num_samples: 50
+  fn:
+    _target_: lfads_torch.post_run.analysis.run_posterior_sampling
+    filename: lfads_output.h5
+    num_samples: 50
 
 logger:
   tensorboard_logger:

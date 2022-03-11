@@ -1,6 +1,6 @@
 defaults:
-  - model: nlb_mc_maze
-  - datamodule: nlb_mc_maze
+  - model: nlb_area2_bump
+  - datamodule: nlb_area2_bump
   - callbacks: nlb
   - logger: default
   # enable color logging
@@ -35,7 +35,8 @@ callbacks:
     min_delta: 0
 
 posterior_sampling:
-  _target_: lfads_torch.analysis.run_posterior_sampling
-  filename: lfads_output.h5
   best_ckpt: true
-  num_samples: 50
+  fn:
+    _target_: lfads_torch.post_run.analysis.run_posterior_sampling
+    filename: lfads_output.h5
+    num_samples: 50

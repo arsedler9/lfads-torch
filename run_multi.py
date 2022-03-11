@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 @hydra.main(config_path="config_run/", config_name="multi_run.yaml")
 def main(config: DictConfig):
     print(OmegaConf.to_yaml(config))
-    from lfads_torch.train import train
+    from lfads_torch.run_model import run_model
 
     # Instantiate the scheduler
     scheduler = instantiate(config.scheduler, _convert_="all")
@@ -25,7 +25,7 @@ def main(config: DictConfig):
     ray_tune_run_params = instantiate(config["ray_tune_run"])
     # ray.init(local_mode=True)
     analysis = ray.tune.run(
-        train,
+        run_model,
         config=search_space,
         scheduler=scheduler,
         **ray_tune_run_params,

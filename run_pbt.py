@@ -1,4 +1,6 @@
 import logging
+import shutil
+from os import path
 
 import hydra
 import ray
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 @hydra.main(config_path="config_run/", config_name="pbt_run.yaml")
 def main(config: DictConfig):
     print(OmegaConf.to_yaml(config))
-    from lfads_torch.train import train
+    from lfads_torch.run_model import run_model
 
     # Instantiate the scheduler
     scheduler = instantiate(config.scheduler, _convert_="all")
@@ -25,12 +27,17 @@ def main(config: DictConfig):
     ray_tune_run_params = instantiate(config["ray_tune_run"])
     # ray.init(local_mode=True)
     analysis = ray.tune.run(
-        train,
+        ray.tune.with_parameters(run_model, do_posterior_sample=False),
         config=search_space,
         scheduler=scheduler,
         **ray_tune_run_params,
     )
     print(f"Best hyperparameters: {analysis.best_config}")
+    # Load the best model and run posterior sampling (skip training)
+    best_model_dir = path.join(path.dirname(analysis.best_logdir), "best_model")
+    shutil.copytree(analysis.best_logdir, best_model_dir)
+    overrides = {"config_train": config.config_train}
+    run_model(overrides, checkpoint_dir=best_model_dir, do_train=False)
 
 
 if __name__ == "__main__":

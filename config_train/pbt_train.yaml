@@ -1,6 +1,6 @@
 defaults:
-  - model: nlb_mc_maze
-  - datamodule: nlb_mc_maze
+  - model: nlb_area2_bump
+  - datamodule: nlb_area2_bump
   - callbacks: nlb
   - logger: default
   # enable color logging
@@ -19,6 +19,9 @@ trainer:
   enable_progress_bar: False
   enable_model_summary: False
 
+# Allow PBT to handle LR scheduling
+model.lr_decay: 1.0
+
 callbacks:
   model_checkpoint:
     _target_: pytorch_lightning.callbacks.ModelCheckpoint
@@ -29,17 +32,18 @@ callbacks:
     metrics:
       - valid/recon_smth
       - cur_epoch
-    filename: checkpoint
+    filename: tune.ckpt
     "on": validation_end
   learning_rate_monitor:
     _target_: pytorch_lightning.callbacks.LearningRateMonitor
     logging_interval: epoch
 
 posterior_sampling:
-  _target_: lfads_torch.analysis.run_posterior_sampling
-  filename: lfads_output.h5
   best_ckpt: false
-  num_samples: 50
+  fn:
+    _target_: lfads_torch.post_run.analysis.run_posterior_sampling
+    filename: lfads_output.h5
+    num_samples: 50
 
 logger:
   tensorboard_logger:
