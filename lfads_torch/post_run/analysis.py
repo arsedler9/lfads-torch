@@ -5,12 +5,12 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from .utils import batch_fwd
+from ..utils import batch_fwd
 
 logger = logging.getLogger(__name__)
 
 
-def run_posterior_sampling(model, trainer, filename, best_ckpt=False, num_samples=50):
+def run_posterior_sampling(model, datamodule, filename, num_samples=50):
     """Runs the model repeatedly to generate outputs for different samples
     of the posteriors. Averages these outputs and saves them to an output file.
 
@@ -18,8 +18,8 @@ def run_posterior_sampling(model, trainer, filename, best_ckpt=False, num_sample
     ----------
     model : lfads_torch.models.base_model.LFADS
         A trained LFADS model.
-    trainer : pytorch_lightning.Trainer
-        The `Trainer` used to train the `model`.
+    datamodule : pytorch_lightning.LightningDataModule
+        The `LightningDataModule` to pass through the `model`.
     filename : str
         The filename to use for saving output
     best_ckpt : bool, optional
@@ -28,13 +28,10 @@ def run_posterior_sampling(model, trainer, filename, best_ckpt=False, num_sample
     num_samples : int, optional
         The number of forward passes to average, by default 50
     """
-    if best_ckpt:
-        # Restore the best checkpoint if necessary
-        best_model_path = trainer.checkpoint_callback.best_model_path
-        model.load_from_checkpoint(best_model_path)
     # Batch the data
-    train_dl = trainer.datamodule.train_dataloader(shuffle=False)
-    valid_dl = trainer.datamodule.val_dataloader()
+    datamodule.setup()
+    train_dl = datamodule.train_dataloader(shuffle=False)
+    valid_dl = datamodule.val_dataloader()
 
     def transpose_list(output):
         # Transpose a list of lists
