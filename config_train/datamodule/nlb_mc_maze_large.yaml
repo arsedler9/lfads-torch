@@ -1,0 +1,10 @@
+_target_: lfads_torch.datamodules.nlb.LFADSNLBDataModule
+dataset_name: mc_maze_large
+phase: val
+bin_width: 5
+batch_size: 256
+num_workers: 4
+# Name these params with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
+dm_sv_rate: ${model.sv_rate}
+dm_sv_seed: ${model.sv_seed}
+dm_ic_enc_seq_len: ${model.ic_enc_seq_len}
