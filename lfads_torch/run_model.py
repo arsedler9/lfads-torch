@@ -15,17 +15,15 @@ log = logging.getLogger(__name__)
 
 
 def run_model(
-    overrides: dict,
+    overrides: dict = {},
     checkpoint_dir: str = None,
+    config_train: str = "single_train.yaml",
     do_train: bool = True,
     do_posterior_sample: bool = True,
 ):
     """Adds overrides to the default config, instantiates all PyTorch Lightning
     objects from config, and runs the training pipeline.
     """
-
-    # Get the name of the train config
-    config_train = overrides.pop("config_train")
 
     # Format the overrides so they can be used by hydra
     overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]

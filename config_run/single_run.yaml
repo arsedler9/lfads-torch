@@ -9,6 +9,7 @@ defaults:
 run_tag: ???
 runs_home: /snel/share/runs/lfads-torch/testing
 config_train: single_train.yaml
+overwrite: True
 
 hydra:
   run:

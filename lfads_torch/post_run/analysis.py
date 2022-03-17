@@ -22,9 +22,6 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
         The `LightningDataModule` to pass through the `model`.
     filename : str
         The filename to use for saving output
-    best_ckpt : bool, optional
-        Whether to use the checkpoint with the lowest validation reconstruction
-        cost, by default False uses the most recent checkpoint
     num_samples : int, optional
         The number of forward passes to average, by default 50
     """

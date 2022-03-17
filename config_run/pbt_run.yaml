@@ -1,6 +1,7 @@
 defaults:
-  - scheduler: pbt
-  - search_space: autolfads_default
+  # Set these defaults inside `ray_tune_run_kwargs`
+  - scheduler@ray_tune_run_kwargs.scheduler: pbt
+  - search_space@ray_tune_run_kwargs.config: autolfads_default
   # Use colored logger
   - override hydra/job_logging: colorlog
   - override hydra/hydra_logging: colorlog
@@ -9,8 +10,10 @@ defaults:
 run_tag: ???
 runs_home: /snel/share/runs/lfads-torch/testing
 config_train: pbt_train.yaml
+local_mode: False
+overwrite: True
 
-ray_tune_run:
+ray_tune_run_kwargs:
   name: ${run_tag}
   metric: valid/recon_smth
   mode: min
@@ -34,12 +37,12 @@ ray_tune_run:
   verbose: 1
   reuse_actors: True
   keep_checkpoints_num: 1
-  stop:
-    _target_: ray.tune.stopper.ExperimentPlateauStopper
-    metric: valid/recon_smth
-    std: 1.0e-3
-    top: 10
-    patience: 100
+  # stop:
+  #   _target_: ray.tune.stopper.ExperimentPlateauStopper
+  #   metric: valid/recon_smth
+  #   std: 1.0e-5
+  #   top: 10
+  #   patience: 100
 
 hydra:
   run:

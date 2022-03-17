@@ -1,6 +1,7 @@
 defaults:
-  - scheduler: fifo
-  - search_space: autolfads_chaotic
+  # Set these defaults inside `ray_tune_run_kwargs`
+  - scheduler@ray_tune_run_kwargs.scheduler: fifo
+  - search_space@ray_tune_run_kwargs.config: autolfads_chaotic
   # Use colored logger
   - override hydra/job_logging: colorlog
   - override hydra/hydra_logging: colorlog
@@ -9,8 +10,10 @@ defaults:
 run_tag: ???
 runs_home: /snel/share/runs/lfads-torch/testing
 config_train: multi_train.yaml
+local_mode: False
+overwrite: True
 
-ray_tune_run:
+ray_tune_run_kwargs:
   name: ${run_tag}
   metric: valid/recon_smth
   mode: min

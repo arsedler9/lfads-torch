@@ -1,6 +1,6 @@
 import logging
+import os
 import shutil
-from os import path
 
 import hydra
 import ray
@@ -15,29 +15,33 @@ def main(config: DictConfig):
     print(OmegaConf.to_yaml(config))
     from lfads_torch.run_model import run_model
 
-    # Instantiate the scheduler
-    scheduler = instantiate(config.scheduler, _convert_="all")
-    # Instantiate the config search space
-    search_space = instantiate(config.search_space, _convert_="all")
-    # Specify the train config to use
-    search_space["config_train"] = config.config_train
     # Clear the GlobalHydra instance so we can compose again in `train`
     hydra.core.global_hydra.GlobalHydra.instance().clear()
-    # Run the search with `ray.tune`
-    ray_tune_run_params = instantiate(config["ray_tune_run"])
-    # ray.init(local_mode=True)
+    # Instantiate arguments to `ray.tune.run` can check here to debug
+    ray_tune_run_kwargs = instantiate(config.ray_tune_run_kwargs, _convert_="all")
+    # Enable local model for debugging
+    if config.local_mode:
+        ray.init(local_mode=True)
+    # If overwriting, clear the working directory
+    if config.overwrite:
+        shutil.rmtree(os.getcwd() + "/", ignore_errors=True)
+    # Run the experiment with `ray.tune`, skip posterior sample to save space
     analysis = ray.tune.run(
-        ray.tune.with_parameters(run_model, do_posterior_sample=False),
-        config=search_space,
-        scheduler=scheduler,
-        **ray_tune_run_params,
+        ray.tune.with_parameters(
+            run_model,
+            config_train=config.config_train,
+            do_posterior_sample=False,
+        ),
+        **ray_tune_run_kwargs,
     )
-    print(f"Best hyperparameters: {analysis.best_config}")
     # Load the best model and run posterior sampling (skip training)
-    best_model_dir = path.join(path.dirname(analysis.best_logdir), "best_model")
+    best_model_dir = os.path.join(os.getcwd(), "best_model")
     shutil.copytree(analysis.best_logdir, best_model_dir)
-    overrides = {"config_train": config.config_train}
-    run_model(overrides, checkpoint_dir=best_model_dir, do_train=False)
+    run_model(
+        checkpoint_dir=best_model_dir,
+        config_train=config.config_train,
+        do_train=False,
+    )
 
 
 if __name__ == "__main__":
