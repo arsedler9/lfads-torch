@@ -1,16 +1,16 @@
 _target_: lfads_torch.models.base_model.LFADS
 
 # --------- architecture --------- #
-encod_data_dim: 137
-recon_data_dim: 182
-encod_seq_len: 140
-recon_seq_len: 180
+encod_data_dim: 40
+recon_data_dim: 54
+encod_seq_len: 300
+recon_seq_len: 340
 ext_input_dim: 0
 ic_enc_seq_len: 0
 ic_enc_dim: 100
-ci_enc_dim: 80
+ci_enc_dim: 64
 ci_lag: 1
-con_dim: 80
+con_dim: 64
 co_dim: 4
 ic_dim: 100
 gen_dim: 100

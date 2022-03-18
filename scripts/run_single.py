@@ -5,7 +5,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 
-@hydra.main(config_path="config_run/", config_name="single_run.yaml")
+@hydra.main(config_path="../config_run/", config_name="single_run.yaml")
 def main(config: DictConfig):
     print(OmegaConf.to_yaml(config, resolve=True))
     from lfads_torch.run_model import run_model

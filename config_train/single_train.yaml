@@ -1,6 +1,6 @@
 defaults:
-  - model: nlb_area2_bump
-  - datamodule: nlb_area2_bump
+  - model: nlb_mc_maze
+  - datamodule: nlb_mc_maze
   - callbacks: nlb
   - logger: default
   # enable color logging
