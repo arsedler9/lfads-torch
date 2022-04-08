@@ -10,7 +10,7 @@ from hydra import compose, initialize
 from hydra.utils import call, instantiate
 from pytorch_lightning.loggers import LightningLoggerBase
 
-from .utils.misc import flatten
+from .utils import flatten
 
 log = logging.getLogger(__name__)
 

@@ -15,10 +15,6 @@ trainer:
   gradient_clip_val: 200
   max_epochs: 1_000
   log_every_n_steps: 5
-  # # Use strategy that prevents PTL from restoring optimizers
-  # strategy:
-  #   _target_: lfads_torch.utils.pytorch_lightning.SingleDeviceStrategy
-  #   device: cuda:0
   # Checkpointing is managed by the `TuneReportCheckpointCallback`
   enable_checkpointing: False
   # Prevent console output by individual models

@@ -10,11 +10,11 @@ raster_plot:
 trajectory_plot_callback:
   _target_: nlb_lightning.callbacks.TrajectoryPlotCallback
   batch_fwd:
-    _target_: lfads_torch.utils.misc.get_batch_fwd
+    _target_: lfads_torch.utils.get_batch_fwd
   log_every_n_epochs: 5
 
 evaluation_callback:
   _target_: nlb_lightning.callbacks.EvaluationCallback
   batch_fwd:
-    _target_: lfads_torch.utils.misc.get_batch_fwd
+    _target_: lfads_torch.utils.get_batch_fwd
   log_every_n_epochs: 5
