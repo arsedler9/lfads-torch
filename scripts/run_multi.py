@@ -36,7 +36,7 @@ if os.path.exists(RUN_DIR):
         )
 # Run the hyperparameter search
 tune.run(
-    tune.with_parameters(run_model, config_train="multi_run.yaml"),
+    tune.with_parameters(run_model, config_train="multi.yaml"),
     metric="valid/recon_smth",
     mode="min",
     name=RUN_TAG,

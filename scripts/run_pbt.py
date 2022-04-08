@@ -41,7 +41,7 @@ if os.path.exists(RUN_DIR):
 analysis = tune.run(
     tune.with_parameters(
         run_model,
-        config_train="pbt_run.yaml",
+        config_train="pbt.yaml",
         do_posterior_sample=False,
     ),
     metric="valid/recon_smth",
@@ -105,6 +105,6 @@ shutil.copytree(analysis.best_logdir, best_model_dir)
 run_model(
     # TODO: Update to use `ray.tune` checkpoints (analysis.best_checkpoint)
     checkpoint_dir=os.path.join(best_model_dir, "ptl_ckpts"),
-    config_train="pbt_run.yaml",
+    config_train="pbt.yaml",
     do_train=False,
 )

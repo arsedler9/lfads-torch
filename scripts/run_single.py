@@ -27,4 +27,4 @@ if os.path.exists(RUN_DIR):
 # Switch to the `RUN_DIR` and train the model
 os.makedirs(RUN_DIR)
 os.chdir(RUN_DIR)
-run_model(config_train="single_run.yaml")
+run_model(config_train="single.yaml")
