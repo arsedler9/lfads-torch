@@ -1,23 +1,30 @@
+import logging
 import os
 import shutil
 
-import hydra
-from omegaconf import DictConfig, OmegaConf
+from lfads_torch.run_model import run_model
 
+logger = logging.getLogger(__name__)
 
-@hydra.main(config_path="../config_run/", config_name="single_run.yaml")
-def main(config: DictConfig):
-    print(OmegaConf.to_yaml(config, resolve=True))
-    from lfads_torch.run_model import run_model
+# ---------- OPTIONS -----------
+OVERWRITE = True
 
-    # Clear the GlobalHydra instance so we can compose again in `train`
-    hydra.core.global_hydra.GlobalHydra.instance().clear()
-    # If overwriting, clear the working directory
-    if config.overwrite:
-        shutil.rmtree(os.getcwd() + "/", ignore_errors=True)
-    # Run the training function
-    return run_model(config_train=config.config_train)
+RUN_TAG = "test_new_run"
+RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
+# ------------------------------
 
-
-if __name__ == "__main__":
-    main()
+# Overwrite the directory if necessary
+RUN_DIR = f"{RUNS_HOME}/single/{RUN_TAG}"
+if os.path.exists(RUN_DIR):
+    if OVERWRITE:
+        logger.warning(f"Overwriting single-run at {RUN_DIR}")
+        shutil.rmtree(RUN_DIR)
+    else:
+        raise OSError(
+            "The single-run directory already exists. "
+            "Set `OVERWRITE=True` or create a new `RUN_TAG`."
+        )
+# Switch to the `RUN_DIR` and train the model
+os.makedirs(RUN_DIR)
+os.chdir(RUN_DIR)
+run_model(config_train="single_run.yaml")

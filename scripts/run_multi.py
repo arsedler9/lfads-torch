@@ -2,35 +2,64 @@ import logging
 import os
 import shutil
 
-import hydra
 import ray
-from hydra.utils import instantiate
-from omegaconf import DictConfig, OmegaConf
+from ray import tune
+from ray.tune import CLIReporter
+from ray.tune.schedulers import FIFOScheduler
+from ray.tune.suggest.basic_variant import BasicVariantGenerator
+
+from lfads_torch.run_model import run_model
 
 logger = logging.getLogger(__name__)
 
+# ---------- OPTIONS -----------
+LOCAL_MODE = False
+OVERWRITE = True
 
-@hydra.main(config_path="../config_run/", config_name="multi_run.yaml")
-def main(config: DictConfig):
-    print(OmegaConf.to_yaml(config))
-    from lfads_torch.run_model import run_model
+RUN_TAG = "test_new_run"
+RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
+# ------------------------------
 
-    # Clear the GlobalHydra instance so we can compose again in `train`
-    hydra.core.global_hydra.GlobalHydra.instance().clear()
-    # Instantiate arguments to `ray.tune.run` can check here to debug
-    ray_tune_run_kwargs = instantiate(config.ray_tune_run_kwargs, _convert_="all")
-    # Enable local model for debugging
-    if config.local_mode:
-        ray.init(local_mode=True)
-    # If overwriting, clear the working directory
-    if config.overwrite:
-        shutil.rmtree(os.getcwd() + "/", ignore_errors=True)
-    # Run the experiment with `ray.tune`
-    ray.tune.run(
-        ray.tune.with_parameters(run_model, config_train=config.config_train),
-        **ray_tune_run_kwargs,
-    )
-
-
-if __name__ == "__main__":
-    main()
+# Initialize the `ray` server in local mode if necessary
+if LOCAL_MODE:
+    ray.init(local_mode=True)
+# Overwrite the directory if necessary
+RUN_DIR = f"{RUNS_HOME}/multi/{RUN_TAG}"
+if os.path.exists(RUN_DIR):
+    if OVERWRITE:
+        logger.warning(f"Overwriting multi-run at {RUN_DIR}")
+        shutil.rmtree(RUN_DIR)
+    else:
+        raise OSError(
+            "The multi-run directory already exists. "
+            "Set `OVERWRITE=True` or create a new `RUN_TAG`."
+        )
+# Run the hyperparameter search
+tune.run(
+    tune.with_parameters(run_model, config_train="multi_run.yaml"),
+    metric="valid/recon_smth",
+    mode="min",
+    name=RUN_TAG,
+    config=dict(
+        model=dict(
+            dropout_rate=tune.uniform(0.0, 0.7),
+            l2_ic_enc_scale=tune.loguniform(1e-5, 1e-3),
+            l2_ci_enc_scale=tune.loguniform(1e-5, 1e-3),
+            l2_gen_scale=tune.loguniform(1e-5, 1e0),
+            l2_con_scale=tune.loguniform(1e-5, 1e0),
+            kl_co_scale=tune.loguniform(1e-6, 1e-3),
+            kl_ic_scale=tune.loguniform(1e-6, 1e-3),
+        ),
+    ),
+    resources_per_trial=dict(cpu=3, gpu=0.5),
+    num_samples=20,
+    local_dir=f"{RUNS_HOME}/multi",
+    search_alg=BasicVariantGenerator(random_state=0),
+    scheduler=FIFOScheduler(),
+    verbose=1,
+    progress_reporter=CLIReporter(
+        metric_columns=["valid/recon_smth", "cur_epoch"],
+        sort_by_metric=True,
+    ),
+    trial_dirname_creator=lambda trial: str(trial),
+)

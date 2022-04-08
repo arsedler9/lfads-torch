@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 from glob import glob
 from typing import List
 
@@ -9,7 +10,7 @@ from hydra import compose, initialize
 from hydra.utils import call, instantiate
 from pytorch_lightning.loggers import LightningLoggerBase
 
-from .utils import flatten
+from .utils.misc import flatten
 
 log = logging.getLogger(__name__)
 
@@ -29,8 +30,13 @@ def run_model(
     overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]
 
     # Compose the train config
-    with initialize(config_path="../config_train/", job_name="train"):
+    with initialize(config_path="../configs/", job_name="run_model"):
         config = compose(config_name=config_train, overrides=overrides)
+
+    # Avoid flooding the console with output during multi-model runs
+    if config.ignore_warnings:
+        logging.getLogger("pytorch_lightning").setLevel(logging.WARNING)
+        warnings.filterwarnings("ignore")
 
     # Set seed for random number generators in pytorch, numpy and python.random
     if config.get("seed") is not None:
@@ -48,7 +54,8 @@ def run_model(
     if checkpoint_dir:
         ckpt_pattern = os.path.join(checkpoint_dir, "*.ckpt")
         ckpt_path = max(glob(ckpt_pattern), key=os.path.getctime)
-        model.load_from_checkpoint(ckpt_path)
+        state_dict = torch.load(ckpt_path)["state_dict"]
+        model.load_state_dict(state_dict)
 
     if do_train:
         # Init lightning callbacks
@@ -82,7 +89,8 @@ def run_model(
         # Restore the best checkpoint if necessary
         if config.posterior_sampling.best_ckpt:
             best_model_path = trainer.checkpoint_callback.best_model_path
-            model.load_from_checkpoint(best_model_path)
+            state_dict = torch.load(best_model_path)["state_dict"]
+            model.load_state_dict(state_dict)
 
     # Run the posterior sampling function
     if do_posterior_sample:
