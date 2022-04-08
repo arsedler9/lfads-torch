@@ -89,6 +89,9 @@ class RasterPlot(pl.Callback):
         # Get data samples
         dataloader = trainer.datamodule.val_dataloader()
         encod_data, recon_data, _, ext, truth, *_ = next(iter(dataloader))
+        # Compute data sizes
+        _, steps_encod, neur_encod = encod_data.shape
+        _, steps_recon, neur_recon = recon_data.shape
         # Compute model output
         means, *_, inputs, _ = pl_module(
             encod_data.to(pl_module.device),
@@ -119,6 +122,10 @@ class RasterPlot(pl.Callback):
             for j, (ax, array) in enumerate(zip(ax_col, plot_arrays)):
                 if j < len(plot_arrays) - 1:
                     ax.imshow(array[i].T, interpolation="none", aspect="auto")
+                    ax.vlines(steps_encod, 0, neur_recon, color="orange")
+                    ax.hlines(neur_encod, 0, steps_recon, color="orange")
+                    ax.set_xlim(0, steps_recon)
+                    ax.set_ylim(0, neur_recon)
                 else:
                     ax.plot(array[i])
         plt.tight_layout()
