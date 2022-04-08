@@ -8,7 +8,7 @@ import pandas as pd
 
 def read_pbt_hps(pbt_dir):
     # Get the initial values from the results files
-    result_files = glob.glob(os.path.join(pbt_dir, "train_*/result.json"))
+    result_files = glob.glob(os.path.join(pbt_dir, "run_model_*/result.json"))
 
     def get_first_result(fpath):
         with open(fpath, "r") as file:
@@ -79,9 +79,7 @@ def plot_pbt_hps(pbt_dir, plot_field, save_dir=None, **kwargs):
     )
     plot_kwargs.update(kwargs)
     plot_df.plot(**plot_kwargs)
-    if save_dir is None:
-        plt.show()
-    else:
+    if save_dir is not None:
         filename = plot_field.replace(".", "_").lower()
         fig_path = os.path.join(save_dir, f"{filename}.png")
         plt.savefig(fig_path, bbox_inches="tight")

@@ -1,6 +1,6 @@
 csv_logger:
   _target_: pytorch_lightning.loggers.CSVLogger
-  save_dir: "."
+  save_dir: "csv_logs"
   version: ""
   name: ""
 

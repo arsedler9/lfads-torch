@@ -1,32 +1,35 @@
 defaults:
-  - model: nlb_area2_bump
-  - datamodule: nlb_area2_bump
+  - model: nlb_mc_rtt
+  - datamodule: nlb_mc_rtt
   - callbacks: nlb
-  - logger: default
   # enable color logging
   - override hydra/hydra_logging: colorlog
   - override hydra/job_logging: colorlog
   - _self_
 
 seed: 0
+ignore_warnings: True
 
 trainer:
   _target_: pytorch_lightning.Trainer
   gradient_clip_val: 200
   max_epochs: 1_000
   log_every_n_steps: 5
+  # # Use strategy that prevents PTL from restoring optimizers
+  # strategy:
+  #   _target_: lfads_torch.utils.pytorch_lightning.SingleDeviceStrategy
+  #   device: cuda:0
+  # Checkpointing is managed by the `TuneReportCheckpointCallback`
+  enable_checkpointing: False
   # Prevent console output by individual models
   enable_progress_bar: False
   enable_model_summary: False
 
 # Allow PBT to handle LR scheduling
-model.lr_decay: 1.0
+model:
+  lr_decay: 0.99999
 
 callbacks:
-  model_checkpoint:
-    _target_: pytorch_lightning.callbacks.ModelCheckpoint
-    dirpath: "."
-    filename: last
   tune_report_checkpoint_callback:
     _target_: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
     metrics:
@@ -46,10 +49,9 @@ posterior_sampling:
     num_samples: 50
 
 logger:
-  tensorboard_logger:
-    _target_: pytorch_lightning.loggers.TensorBoardLogger
-    # Configure logger so PTL and ray use the same TB file.
-    save_dir:
-      _target_: ray.tune.get_trial_dir
-    version: "."
+  csv_logger:
+    _target_: pytorch_lightning.loggers.CSVLogger
+    save_dir: "csv_logs"
+    # Allow the logger to create a new version for each generation
+    version: null
     name: ""

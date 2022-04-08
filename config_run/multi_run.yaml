@@ -24,7 +24,7 @@ ray_tune_run_kwargs:
     _target_: ray.tune.suggest.basic_variant.BasicVariantGenerator
     random_state: 0
   trial_dirname_creator:
-    _target_: lfads_torch.tune_utils.get_trial_dirname_creator
+    _target_: lfads_torch.utils.ray_tune.get_trial_dirname_creator
   num_samples: 20
   progress_reporter:
     _target_: ray.tune.CLIReporter
