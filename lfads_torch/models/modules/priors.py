@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.distributions import Independent, Normal, kl_divergence
+from torch.distributions import Independent, Normal, StudentT, kl_divergence
 from torch.distributions.transforms import AffineTransform
 
 
@@ -18,9 +18,12 @@ class MultivariateNormal(nn.Module):
         self.mean = nn.Parameter(means, requires_grad=True)
         self.logvar = nn.Parameter(logvars, requires_grad=False)
 
+    def make_posterior(self, post_mean, post_std):
+        return Independent(Normal(post_mean, post_std), 1)
+
     def forward(self, post_mean, post_std):
         # Create the posterior distribution
-        posterior = Independent(Normal(post_mean, post_std), 1)
+        posterior = self.make_posterior(post_mean, post_std)
         # Create the prior and posterior
         prior_std = torch.exp(0.5 * self.logvar)
         prior = Independent(Normal(self.mean, prior_std), 1)
@@ -43,6 +46,9 @@ class AutoregressiveMultivariateNormal(nn.Module):
         self.logtaus = nn.Parameter(logtaus, requires_grad=True)
         self.lognvars = nn.Parameter(lognvars, requires_grad=True)
 
+    def make_posterior(self, post_mean, post_std):
+        return Independent(Normal(post_mean, post_std), 1)
+
     def log_prob(self, sample):
         # Compute alpha and process variance
         alphas = torch.exp(-1.0 / torch.exp(self.logtaus))
@@ -61,9 +67,42 @@ class AutoregressiveMultivariateNormal(nn.Module):
         return prior.log_prob(sample)
 
     def forward(self, post_mean, post_std):
-        posterior = Independent(Normal(post_mean, post_std), 1)
+        posterior = self.make_posterior(post_mean, post_std)
         sample = posterior.rsample()
         log_q = posterior.log_prob(sample)
         log_p = self.log_prob(sample)
+        kl_batch = log_q - log_p
+        return torch.mean(kl_batch)
+
+
+class MultivariateStudentT(nn.Module):
+    def __init__(
+        self,
+        loc: float,
+        scale: float,
+        df: int,
+        shape: int,
+    ):
+        super().__init__()
+        # Create the distribution parameters
+        loc = torch.ones(shape) * scale
+        self.loc = nn.Parameter(loc, requires_grad=True)
+        logscale = torch.log(torch.ones(shape) * scale)
+        self.logscale = nn.Parameter(logscale, requires_grad=True)
+        self.df = df
+
+    def make_posterior(self, post_loc, post_scale):
+        return Independent(StudentT(self.df, post_loc, post_scale), 1)
+
+    def forward(self, post_loc, post_scale):
+        # Create the posterior distribution
+        posterior = self.make_posterior(post_loc, post_scale)
+        # Create the prior distribution
+        prior_scale = torch.exp(self.logscale)
+        prior = Independent(StudentT(self.df, self.loc, prior_scale), 1)
+        # Approximate KL divergence
+        sample = posterior.rsample()
+        log_q = posterior.log_prob(sample)
+        log_p = prior.log_prob(sample)
         kl_batch = log_q - log_p
         return torch.mean(kl_batch)

@@ -1,7 +1,6 @@
 import pytorch_lightning as pl
 import torch
 from torch import nn
-from torch.distributions import Independent, Normal
 
 from ..metrics import ExpSmoothedMetric, r2_score
 from .modules import recons
@@ -87,7 +86,7 @@ class LFADS(pl.LightningModule):
         # Pass the data through the encoders
         ic_mean, ic_std, ci = self.encoder(data)
         # Create the posterior distribution over initial conditions
-        ic_post = Independent(Normal(ic_mean, ic_std), 1)
+        ic_post = self.ic_prior.make_posterior(ic_mean, ic_std)
         # Choose to take a sample or to pass the mean
         ic_samp = ic_post.rsample() if sample_posteriors else ic_mean
         # Unroll the decoder to estimate latent states

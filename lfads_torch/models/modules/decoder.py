@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.distributions import Independent, Normal
 
 from .initializers import init_variance_scaling_
 from .recurrent import ClippedGRUCell
@@ -73,7 +72,7 @@ class DecoderCell(nn.Module):
             co_mean, co_logstd = torch.split(co_params, hps.co_dim, dim=1)
             co_std = torch.exp(co_logstd)
             # Sample from the distribution of controller outputs
-            co_post = Independent(Normal(co_mean, co_std), 1)
+            co_post = self.hparams.co_prior.make_posterior(co_mean, co_std)
             con_output = co_post.rsample() if sample_posteriors else co_mean
             # Combine controller output with any external inputs
             gen_input = torch.cat([con_output, ext_input_step], dim=1)
