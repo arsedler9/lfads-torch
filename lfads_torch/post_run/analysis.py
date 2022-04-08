@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from ..utils import batch_fwd
+from ..utils.misc import batch_fwd
 
 logger = logging.getLogger(__name__)
 

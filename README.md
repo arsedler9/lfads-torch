@@ -12,22 +12,22 @@ pre-commit install
 ```
 
 # TODO
-- Plotting hyperparameter progressions
+- Write test suite
+- Waiting for next release of `ray` that includes `PopulationBasedTraining` bug fixes
+- Waiting on solution to prevent `pytorch_lightning` from restoring previous learning rates during PBT
+- Tune default parameters for `ExperimentPlateauStopper`
 - Finish applying to all NLB datasets and submit to EvalAI for validation
-- Make sure that PTL is restoring weights only (not HPs)
+- (maybe) Define a `tune.Trainable` instead of `run_model` function for computational efficiency
 
 # Known Issues
-- A bug within `ray.tune` keeps all trials `PAUSED` when any trial is `TERMINATED` in PBT.
-- Using the `burn_in_period` argument to the `PopulationBasedTraining` `scheduler` keeps all trials `PAUSED` after first perturb.
+- Doesn't check hyperparameter values to confirm that they are within the valid ranges.
 - PTL prints warning messages about restoring from mid-epoch checkpoints, but they should be saved after validation epoch.
 - Using `TuneReportCheckpointCallback(..., on='train_end')` fails.
-- `CLIReporter` `sort_by_metric` doesn't seem to sort the table correctly.
 
 # Differences from Previous Implementation
 There are several known differences from the original implementation. These are mainly out of convenience, and have not been found to affect model performance.
 ## LFADS Model
-- **Hyperparameter validation**: Checking hyperparameter values to confirm that they are within the valid ranges
-- **Read-in layers**: Readin and readout layers, which can be useful for multi-session modeling, haven't been added yet due to implementation challenges, but may be added in the future.
+- **Read-in layers**: Readin and readout layers, which can be useful for multi-session modeling, haven't been added yet due to implementation hurdles, but will likely be added in the future.
 - **Encoder retraining**: This is not implemented as a hyperparameter in `lfads-torch` because we anticipate that such retraining will be more efficiently and flexibly implemented by setting `requires_grad` in individual scripts.
 ## AutoLFADS
 - **Binary tournament**: The binary tournament exploitation strategy has not been added due to implementation challenges. Instead, we use the `PopulationBasedTraining` scheduler from `ray.tune`, which transfers weights from an upper quantile to a lower quantile. HPs are perturbed and, with some smaller probability, resampled.
