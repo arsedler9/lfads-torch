@@ -21,13 +21,13 @@ OVERWRITE = True
 
 RUN_TAG = "test_new_run"
 RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
+RUN_DIR = f"{RUNS_HOME}/pbt/{RUN_TAG}"
 # ------------------------------
 
 # Initialize the `ray` server in local mode if necessary
 if LOCAL_MODE:
     ray.init(local_mode=True)
 # Overwrite the directory if necessary
-RUN_DIR = f"{RUNS_HOME}/pbt/{RUN_TAG}"
 if os.path.exists(RUN_DIR):
     if OVERWRITE:
         logger.warning(f"Overwriting pbt run at {RUN_DIR}")
@@ -46,7 +46,7 @@ analysis = tune.run(
     ),
     metric="valid/recon_smth",
     mode="min",
-    name=RUN_TAG,
+    name=os.path.basename(RUN_DIR),
     # stop=ExperimentPlateauStopper(
     #     metric="valid/recon_smth",
     #     std=1e-5,
@@ -66,7 +66,7 @@ analysis = tune.run(
     ),
     resources_per_trial=dict(cpu=3, gpu=0.5),
     num_samples=20,
-    local_dir=f"{RUNS_HOME}/pbt",
+    local_dir=os.path.dirname(RUN_DIR),
     search_alg=BasicVariantGenerator(random_state=0),
     scheduler=PopulationBasedTraining(
         time_attr="cur_epoch",

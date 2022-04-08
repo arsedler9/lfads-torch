@@ -18,13 +18,13 @@ OVERWRITE = True
 
 RUN_TAG = "test_new_run"
 RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
+RUN_DIR = f"{RUNS_HOME}/multi/{RUN_TAG}"
 # ------------------------------
 
 # Initialize the `ray` server in local mode if necessary
 if LOCAL_MODE:
     ray.init(local_mode=True)
 # Overwrite the directory if necessary
-RUN_DIR = f"{RUNS_HOME}/multi/{RUN_TAG}"
 if os.path.exists(RUN_DIR):
     if OVERWRITE:
         logger.warning(f"Overwriting multi-run at {RUN_DIR}")
@@ -39,7 +39,7 @@ tune.run(
     tune.with_parameters(run_model, config_train="multi.yaml"),
     metric="valid/recon_smth",
     mode="min",
-    name=RUN_TAG,
+    name=os.path.basename(RUN_DIR),
     config=dict(
         model=dict(
             dropout_rate=tune.uniform(0.0, 0.7),
@@ -53,7 +53,7 @@ tune.run(
     ),
     resources_per_trial=dict(cpu=3, gpu=0.5),
     num_samples=20,
-    local_dir=f"{RUNS_HOME}/multi",
+    local_dir=os.path.dirname(RUN_DIR),
     search_alg=BasicVariantGenerator(random_state=0),
     scheduler=FIFOScheduler(),
     verbose=1,
