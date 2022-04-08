@@ -116,8 +116,11 @@ class RasterPlot(pl.Callback):
             gridspec_kw={"height_ratios": height_ratios},
         )
         for i, ax_col in enumerate(axes.T):
-            for ax, array in zip(ax_col, plot_arrays):
-                ax.imshow(array[i].T, interpolation="none", aspect="auto")
+            for j, (ax, array) in enumerate(zip(ax_col, plot_arrays)):
+                if j < len(plot_arrays) - 1:
+                    ax.imshow(array[i].T, interpolation="none", aspect="auto")
+                else:
+                    ax.plot(array[i])
         plt.tight_layout()
         # Log the plot to tensorboard
         im = fig_to_rgb_array(fig)
