@@ -1,6 +1,6 @@
 torch
 torchmetrics==0.7.2
-pytorch-lightning==1.5.10
+pytorch-lightning==1.6.0
 hydra-core
 h5py
 wandb
@@ -10,5 +10,5 @@ isort
 flake8
 rich
 hydra-colorlog
-ray[tune]==1.11.0rc0
+ray[tune]==1.12.0rc1
 matplotlib

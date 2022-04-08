@@ -1,7 +1,7 @@
 _target_: ray.tune.schedulers.PopulationBasedTraining
 time_attr: cur_epoch
-perturbation_interval: 70 # formerly, 50
-# burn_in_period: 150
+perturbation_interval: 50
+burn_in_period: 150
 hyperparam_mutations:
   model:
     lr_init:
