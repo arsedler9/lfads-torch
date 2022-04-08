@@ -1,6 +1,13 @@
 model:
-  lr_init: 1.0e-2
-  cd_rate: 0.5
+  # Specify lr_init and cd_rate with `ray.tune.choice` so they show up on CLIReporter
+  lr_init:
+    _target_: ray.tune.choice
+    categories:
+      - 1.0e-2
+  cd_rate:
+    _target_: ray.tune.choice
+    categories:
+      - 0.5
   dropout_rate:
     _target_: ray.tune.uniform
     lower: 0.0
