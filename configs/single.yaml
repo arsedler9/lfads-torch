@@ -16,6 +16,7 @@ trainer:
   gradient_clip_val: 200
   max_epochs: 1_000
   log_every_n_steps: 5
+  gpus: 1
   # track_grad_norm: 2
 
 callbacks:
@@ -36,7 +37,7 @@ callbacks:
     min_delta: 0
 
 posterior_sampling:
-  best_ckpt: true
+  use_best_ckpt: True
   fn:
     _target_: lfads_torch.post_run.analysis.run_posterior_sampling
     filename: lfads_output.h5

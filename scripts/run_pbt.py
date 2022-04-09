@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 # ---------- OPTIONS -----------
 LOCAL_MODE = False
 OVERWRITE = True
-
 RUN_TAG = "test_new_run"
 RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
 RUN_DIR = f"{RUNS_HOME}/pbt/{RUN_TAG}"
@@ -41,7 +40,7 @@ if os.path.exists(RUN_DIR):
 analysis = tune.run(
     tune.with_parameters(
         run_model,
-        config_train="pbt.yaml",
+        config_name="pbt.yaml",
         do_posterior_sample=False,
     ),
     metric="valid/recon_smth",
@@ -105,6 +104,6 @@ shutil.copytree(analysis.best_logdir, best_model_dir)
 run_model(
     # TODO: Update to use `ray.tune` checkpoints (analysis.best_checkpoint)
     checkpoint_dir=os.path.join(best_model_dir, "ptl_ckpts"),
-    config_train="pbt.yaml",
+    config_name="pbt.yaml",
     do_train=False,
 )

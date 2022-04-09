@@ -8,13 +8,12 @@ logger = logging.getLogger(__name__)
 
 # ---------- OPTIONS -----------
 OVERWRITE = True
-
 RUN_TAG = "test_new_run"
 RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
+RUN_DIR = f"{RUNS_HOME}/single/{RUN_TAG}"
 # ------------------------------
 
 # Overwrite the directory if necessary
-RUN_DIR = f"{RUNS_HOME}/single/{RUN_TAG}"
 if os.path.exists(RUN_DIR):
     if OVERWRITE:
         logger.warning(f"Overwriting single-run at {RUN_DIR}")
@@ -27,4 +26,4 @@ if os.path.exists(RUN_DIR):
 # Switch to the `RUN_DIR` and train the model
 os.makedirs(RUN_DIR)
 os.chdir(RUN_DIR)
-run_model(config_train="single.yaml")
+run_model(config_name="single.yaml")

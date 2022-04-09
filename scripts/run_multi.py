@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 # ---------- OPTIONS -----------
 LOCAL_MODE = False
 OVERWRITE = True
-
 RUN_TAG = "test_new_run"
 RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
 RUN_DIR = f"{RUNS_HOME}/multi/{RUN_TAG}"
@@ -36,7 +35,7 @@ if os.path.exists(RUN_DIR):
         )
 # Run the hyperparameter search
 tune.run(
-    tune.with_parameters(run_model, config_train="multi.yaml"),
+    tune.with_parameters(run_model, config_name="multi.yaml"),
     metric="valid/recon_smth",
     mode="min",
     name=os.path.basename(RUN_DIR),
