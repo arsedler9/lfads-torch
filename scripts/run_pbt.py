@@ -1,6 +1,7 @@
 import logging
-import os
 import shutil
+from datetime import datetime
+from pathlib import Path
 
 import ray
 from ray import tune
@@ -18,24 +19,20 @@ logger = logging.getLogger(__name__)
 # ---------- OPTIONS -----------
 LOCAL_MODE = False
 OVERWRITE = True
-RUN_TAG = "test_new_run"
-RUNS_HOME = "/snel/share/runs/lfads-torch/validation"
-RUN_DIR = f"{RUNS_HOME}/pbt/{RUN_TAG}"
+RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
+RUNS_HOME = Path("/snel/share/runs/lfads-torch/validation")
+RUN_DIR = RUNS_HOME / "pbt" / RUN_TAG
 # ------------------------------
 
 # Initialize the `ray` server in local mode if necessary
 if LOCAL_MODE:
     ray.init(local_mode=True)
 # Overwrite the directory if necessary
-if os.path.exists(RUN_DIR):
-    if OVERWRITE:
-        logger.warning(f"Overwriting pbt run at {RUN_DIR}")
-        shutil.rmtree(RUN_DIR)
-    else:
-        raise OSError(
-            "The pbt run directory already exists. "
-            "Set `OVERWRITE=True` or create a new `RUN_TAG`."
-        )
+if RUN_DIR.exists() and OVERWRITE:
+    shutil.rmtree(RUN_DIR)
+RUN_DIR.mkdir()
+# Copy this script into the run directory
+shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 # Run the hyperparameter search
 analysis = tune.run(
     tune.with_parameters(
@@ -45,7 +42,7 @@ analysis = tune.run(
     ),
     metric="valid/recon_smth",
     mode="min",
-    name=os.path.basename(RUN_DIR),
+    name=RUN_DIR.name,
     # stop=ExperimentPlateauStopper(
     #     metric="valid/recon_smth",
     #     std=1e-5,
@@ -65,7 +62,7 @@ analysis = tune.run(
     ),
     resources_per_trial=dict(cpu=3, gpu=0.5),
     num_samples=20,
-    local_dir=os.path.dirname(RUN_DIR),
+    local_dir=RUN_DIR.parent,
     search_alg=BasicVariantGenerator(random_state=0),
     scheduler=PopulationBasedTraining(
         time_attr="cur_epoch",
@@ -99,11 +96,11 @@ analysis = tune.run(
     reuse_actors=True,
 )
 # Load the best model and run posterior sampling (skip training)
-best_model_dir = os.path.join(os.getcwd(), "best_model")
+best_model_dir = RUN_DIR / "best_model"
 shutil.copytree(analysis.best_logdir, best_model_dir)
 run_model(
     # TODO: Update to use `ray.tune` checkpoints (analysis.best_checkpoint)
-    checkpoint_dir=os.path.join(best_model_dir, "ptl_ckpts"),
+    checkpoint_dir=best_model_dir / "ptl_ckpts",
     config_name="pbt.yaml",
     do_train=False,
 )
