@@ -46,6 +46,10 @@ def run_model(
     if checkpoint_dir:
         ckpt_pattern = os.path.join(checkpoint_dir, "*.ckpt")
         ckpt_path = max(glob(ckpt_pattern), key=os.path.getctime)
+        # Overwrite any `optimizer_states` so optimizers are not restored by PTL
+        ckpt = torch.load(ckpt_path)
+        ckpt["optimizer_states"] = []
+        torch.save(ckpt, ckpt_path)
 
     if do_train:
         # Instantiate the pytorch_lightning `Trainer` and its callbacks and loggers
@@ -53,6 +57,7 @@ def run_model(
             config.trainer,
             callbacks=[instantiate(c) for c in config.callbacks.values()],
             logger=[instantiate(lg) for lg in config.logger.values()],
+            gpus=int(torch.cuda.is_available()),
         )
         # Train the model
         trainer.fit(

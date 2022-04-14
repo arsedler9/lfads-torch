@@ -15,7 +15,6 @@ trainer:
   gradient_clip_val: 200
   max_epochs: 1_000
   log_every_n_steps: 5
-  gpus: 1
   # Checkpointing is managed by the `TuneReportCheckpointCallback`
   enable_checkpointing: False
   # Prevent console output by individual models
@@ -24,7 +23,7 @@ trainer:
 
 # Allow PBT to handle LR scheduling
 model:
-  lr_decay: 0.99999
+  lr_scheduler: False
 
 callbacks:
   tune_report_checkpoint_callback:
@@ -44,6 +43,13 @@ logger:
     save_dir: "csv_logs"
     # Allow the logger to create a new version for each generation
     version: null
+    name: ""
+  tensorboard_logger:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    # Configure logger so PTL and ray use the same TB file.
+    save_dir:
+      _target_: ray.tune.get_trial_dir
+    version: "."
     name: ""
 
 posterior_sampling:

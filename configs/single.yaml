@@ -16,7 +16,6 @@ trainer:
   gradient_clip_val: 200
   max_epochs: 1_000
   log_every_n_steps: 5
-  gpus: 1
   # track_grad_norm: 2
 
 callbacks:

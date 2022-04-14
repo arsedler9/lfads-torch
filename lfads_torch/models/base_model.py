@@ -40,6 +40,7 @@ class LFADS(pl.LightningModule):
         cell_clip: float,
         loss_scale: float,
         recon_reduce_mean: bool,
+        lr_scheduler: bool,
         lr_init: float,
         lr_stop: float,
         lr_decay: float,
@@ -124,22 +125,25 @@ class LFADS(pl.LightningModule):
         hps = self.hparams
         # Create an optimizer
         optimizer = torch.optim.Adam(self.parameters(), lr=hps.lr_init)
-        # Create a scheduler to reduce the learning rate over time
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer=optimizer,
-            mode="min",
-            factor=hps.lr_decay,
-            patience=hps.lr_patience,
-            threshold=0.0,
-            min_lr=hps.lr_stop,
-            eps=hps.lr_adam_epsilon,
-            verbose=True,
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": scheduler,
-            "monitor": "valid/recon_smth",
-        }
+        if hps.lr_scheduler:
+            # Create a scheduler to reduce the learning rate over time
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer=optimizer,
+                mode="min",
+                factor=hps.lr_decay,
+                patience=hps.lr_patience,
+                threshold=0.0,
+                min_lr=hps.lr_stop,
+                eps=hps.lr_adam_epsilon,
+                verbose=True,
+            )
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": scheduler,
+                "monitor": "valid/recon_smth",
+            }
+        else:
+            return optimizer
 
     def training_step(self, batch, batch_ix):
         hps = self.hparams

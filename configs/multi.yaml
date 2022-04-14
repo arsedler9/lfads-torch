@@ -16,7 +16,6 @@ trainer:
   gradient_clip_val: 200
   max_epochs: 1_000
   log_every_n_steps: 5
-  gpus: 1
   # Prevent console output by individual models
   enable_progress_bar: False
   enable_model_summary: False
