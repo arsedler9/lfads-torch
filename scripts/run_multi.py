@@ -19,6 +19,7 @@ OVERWRITE = True
 RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
 RUNS_HOME = Path("/snel/share/runs/lfads-torch/validation")
 RUN_DIR = RUNS_HOME / "multi" / RUN_TAG
+CONFIG_PATH = Path("../configs/multi.yaml")
 # ------------------------------
 
 # Initialize the `ray` server in local mode if necessary
@@ -32,7 +33,7 @@ RUN_DIR.mkdir()
 shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 # Run the hyperparameter search
 tune.run(
-    tune.with_parameters(run_model, config_name="multi.yaml"),
+    tune.with_parameters(run_model, config_path=CONFIG_PATH),
     metric="valid/recon_smth",
     mode="min",
     name=RUN_DIR.name,

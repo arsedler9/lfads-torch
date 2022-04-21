@@ -2,6 +2,7 @@ import logging
 import os
 import warnings
 from glob import glob
+from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
@@ -16,7 +17,7 @@ log = logging.getLogger(__name__)
 def run_model(
     overrides: dict = {},
     checkpoint_dir: str = None,
-    config_name: str = "single.yaml",
+    config_path: str = "../configs/single.yaml",
     do_train: bool = True,
     do_posterior_sample: bool = True,
 ):
@@ -25,9 +26,10 @@ def run_model(
     """
 
     # Compose the train config with properly formatted overrides
+    config_path = Path(config_path)
     overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]
-    with hydra.initialize(config_path="../configs/", job_name="run_model"):
-        config = hydra.compose(config_name=config_name, overrides=overrides)
+    with hydra.initialize(config_path=config_path.parent, job_name="run_model"):
+        config = hydra.compose(config_name=config_path.name, overrides=overrides)
 
     # Avoid flooding the console with output during multi-model runs
     if config.ignore_warnings:

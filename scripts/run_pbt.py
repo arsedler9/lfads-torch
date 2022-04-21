@@ -22,6 +22,7 @@ OVERWRITE = True
 RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
 RUNS_HOME = Path("/snel/share/runs/lfads-torch/validation")
 RUN_DIR = RUNS_HOME / "pbt" / RUN_TAG
+CONFIG_PATH = Path("../configs/pbt.yaml")
 # ------------------------------
 
 # Initialize the `ray` server in local mode if necessary
@@ -37,7 +38,7 @@ shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 analysis = tune.run(
     tune.with_parameters(
         run_model,
-        config_name="pbt.yaml",
+        config_path=CONFIG_PATH,
         do_posterior_sample=False,
     ),
     metric="valid/recon_smth",
@@ -101,6 +102,6 @@ shutil.copytree(analysis.best_logdir, best_model_dir)
 run_model(
     # TODO: Update to use `ray.tune` checkpoints (analysis.best_checkpoint)
     checkpoint_dir=best_model_dir / "ptl_ckpts",
-    config_name="pbt.yaml",
+    config_path=CONFIG_PATH,
     do_train=False,
 )

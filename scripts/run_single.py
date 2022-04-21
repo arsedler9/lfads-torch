@@ -13,6 +13,7 @@ OVERWRITE = True
 RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
 RUNS_HOME = Path("/snel/share/runs/lfads-torch/validation")
 RUN_DIR = RUNS_HOME / "single" / RUN_TAG
+CONFIG_PATH = Path("../configs/single.yaml")
 # ------------------------------
 
 # Overwrite the directory if necessary
@@ -21,4 +22,4 @@ if RUN_DIR.exists() and OVERWRITE:
 RUN_DIR.mkdir()
 # Switch to the `RUN_DIR` and train the model
 os.chdir(RUN_DIR)
-run_model(config_name="single.yaml")
+run_model(config_path=CONFIG_PATH)
