@@ -1,11 +1,8 @@
 import logging
 
 import h5py
-import numpy as np
 import torch
 from tqdm import tqdm
-
-from ..utils import batch_fwd
 
 logger = logging.getLogger(__name__)
 
@@ -34,22 +31,30 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
         # Transpose a list of lists
         return list(map(list, zip(*output)))
 
-    def run_ps_epoch(dataloader):
-        # Compute all model outputs for the dataloader
-        output = [
-            batch_fwd(model, batch, sample_posteriors=True) for batch in dataloader
-        ]
-        # Concatenate outputs along the batch dimension
-        return [torch.cat(o).detach().cpu().numpy() for o in transpose_list(output)]
+    def run_ps_batch(batch):
+        # Move the batch to the model device
+        input_data = batch[0].to(model.device)
+        ext = batch[3].to(model.device)
+        # Repeatedly compute the model outputs for this batch
+        for i in range(num_samples):
+            output = model(input_data, ext, sample_posteriors=True)
+            # Use running sum to save memory while averaging
+            if i == 0:
+                # Detach output from the graph to save memory on gradients
+                sums = [o.detach() for o in output]
+            else:
+                sums = [s + o.detach() for s, o in zip(sums, output)]
+        # Finish averaging by dividing by the total number of samples
+        return [s / num_samples for s in sums]
 
     # Repeatedly get model output for the complete dataset
     logger.info("Running posterior sampling on train data.")
-    train_ps = [run_ps_epoch(train_dl) for _ in tqdm(range(num_samples))]
+    train_ps = [run_ps_batch(batch) for batch in tqdm(train_dl)]
     logger.info("Running posterior sampling on valid data.")
-    valid_ps = [run_ps_epoch(valid_dl) for _ in tqdm(range(num_samples))]
+    valid_ps = [run_ps_batch(batch) for batch in tqdm(valid_dl)]
     # Average across the samples
-    train_pm = [np.mean(np.stack(o), axis=0) for o in transpose_list(train_ps)]
-    valid_pm = [np.mean(np.stack(o), axis=0) for o in transpose_list(valid_ps)]
+    train_pm = [torch.cat(o).cpu().numpy() for o in transpose_list(train_ps)]
+    valid_pm = [torch.cat(o).cpu().numpy() for o in transpose_list(valid_ps)]
     # Save the averages to the output file
     with h5py.File(filename, mode="w") as h5file:
         for prefix, pm in zip(["train_", "valid_"], [train_pm, valid_pm]):

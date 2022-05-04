@@ -78,5 +78,6 @@ def run_model(
 
     # Run the posterior sampling function
     if do_posterior_sample:
-        # TODO: Make more efficient by single transfer to GPU
+        if torch.cuda.is_available():
+            model = model.to("cuda")
         call(config.posterior_sampling.fn, model=model, datamodule=datamodule)
