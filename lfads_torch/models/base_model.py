@@ -58,7 +58,9 @@ class LFADS(pl.LightningModule):
         kl_co_scale: float,
     ):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["ic_prior", "co_prior"])
+        # Store `co_prior` on `hparams` so it can be accessed in decoder
+        self.hparams.co_prior = co_prior
 
         # Decide whether to use the controller
         self.use_con = all([ci_enc_dim > 0, con_dim > 0, co_dim > 0])
