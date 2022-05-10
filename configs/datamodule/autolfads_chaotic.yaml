@@ -1,7 +1,7 @@
 _target_: lfads_torch.datamodules.base.BasicDataModule
 data_path: /snel/share/data/autolfads_paper/overfitting/chaotic_rnn_inputs_2_dataset_N50_S50
 batch_size: 500
-num_workers: 4
+num_workers: 0
 # Name these params with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
 dm_sv_rate: ${model.sv_rate}
 dm_sv_seed: ${model.sv_seed}
