@@ -23,6 +23,12 @@ cd_pass_rate: 0.0
 sv_rate: 0.0
 sv_seed: 0
 
+# --------- augmentation ---------#
+encod_augment:
+  _target_: lfads_torch.models.modules.augmentations.DataAugmentation
+recon_augment:
+  _target_: lfads_torch.models.modules.augmentations.DataAugmentation
+
 # --------- priors / posteriors --------- #
 reconstruction:
   _target_: lfads_torch.models.modules.recons.Poisson

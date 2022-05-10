@@ -11,8 +11,6 @@ from hydra.utils import call, instantiate
 
 from .utils import flatten
 
-log = logging.getLogger(__name__)
-
 
 def run_model(
     overrides: dict = {},

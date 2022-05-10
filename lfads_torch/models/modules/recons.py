@@ -69,12 +69,12 @@ class Gaussian(Reconstruction):
     def __init__(self):
         self.n_params = 2
 
-    def reshape_output_params(self, output_params, sample_and_average):
-        output_means, output_logvars = torch.split(output_params, 2, -1)
-        return torch.stack([output_means, output_logvars], -1)
+    def reshape_output_params(self, output_params):
+        means, logvars = torch.chunk(output_params, 2, -1)
+        return torch.stack([means, logvars], -1)
 
     def compute_loss(self, data, output_params):
-        means, logvars = torch.unstack(output_params, axis=-1)
+        means, logvars = torch.unbind(output_params, axis=-1)
         recon_all = F.gaussian_nll_loss(
             input=means, target=data, var=torch.exp(logvars), reduction="none"
         )
@@ -82,3 +82,22 @@ class Gaussian(Reconstruction):
 
     def compute_means(self, output_params):
         return output_params[..., 0]
+
+
+class Gamma(Reconstruction):
+    def __init__(self):
+        self.n_params = 2
+
+    def reshape_output_params(self, output_params):
+        logalphas, logbetas = torch.chunk(output_params, chunks=2, dim=-1)
+        return torch.stack([logalphas, logbetas], -1)
+
+    def compute_loss(self, data, output_params):
+        alphas, betas = torch.unbind(torch.exp(output_params), axis=-1)
+        output_dist = torch.distributions.Gamma(alphas, betas)
+        recon_all = -output_dist.log_prob(data)
+        return recon_all
+
+    def compute_means(self, output_params):
+        alphas, betas = torch.unbind(torch.exp(output_params), axis=-1)
+        return alphas / betas

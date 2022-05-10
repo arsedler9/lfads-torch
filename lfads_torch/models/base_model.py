@@ -3,7 +3,7 @@ import torch
 from torch import nn
 
 from ..metrics import ExpSmoothedMetric, r2_score
-from .modules import recons
+from .modules import augmentations, recons
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
 from .modules.initializers import init_variance_scaling_
@@ -38,6 +38,8 @@ class LFADS(pl.LightningModule):
         ic_prior: nn.Module,
         ic_post_var_min: float,
         cell_clip: float,
+        encod_augment: augmentations.DataAugmentation,
+        recon_augment: augmentations.DataAugmentation,
         loss_scale: float,
         recon_reduce_mean: bool,
         lr_scheduler: bool,
@@ -58,7 +60,9 @@ class LFADS(pl.LightningModule):
         kl_co_scale: float,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=["ic_prior", "co_prior"])
+        self.save_hyperparameters(
+            ignore=["ic_prior", "co_prior", "encod_augment", "recon_augment"],
+        )
         # Store `co_prior` on `hparams` so it can be accessed in decoder
         self.hparams.co_prior = co_prior
 
@@ -84,6 +88,9 @@ class LFADS(pl.LightningModule):
             self.co_prior = co_prior
         # Create metric for exponentially-smoothed `valid/recon`
         self.valid_recon_smth = ExpSmoothedMetric()
+        # Store the data augmentation layers
+        self.encod_augment = encod_augment
+        self.recon_augment = recon_augment
 
     def forward(self, data, ext_input, sample_posteriors=False, output_means=True):
         # Pass the data through the encoders
@@ -150,6 +157,9 @@ class LFADS(pl.LightningModule):
     def training_step(self, batch, batch_ix):
         hps = self.hparams
         encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
+        # Augment encoding and reconstruction data
+        encod_data = self.encod_augment(encod_data)
+        recon_data = self.recon_augment(recon_data)
         # Apply sample validation processing to the input data
         sv_data = self.samp_validation.process_inputs(encod_data, sv_mask)
         # Apply coordinated dropout processing to the input data
