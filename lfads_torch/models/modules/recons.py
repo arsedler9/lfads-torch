@@ -12,6 +12,7 @@ import abc
 
 import torch
 import torch.nn.functional as F
+from torch import nn
 
 
 class Reconstruction(abc.ABC):
@@ -101,3 +102,62 @@ class Gamma(Reconstruction):
     def compute_means(self, output_params):
         alphas, betas = torch.unbind(torch.exp(output_params), axis=-1)
         return alphas / betas
+
+
+class ZeroInflatedGamma(nn.Module, Reconstruction):
+    def __init__(
+        self,
+        recon_dim: int,
+        gamma_loc: float,
+        scale_init: float,
+        scale_prior: float,
+        scale_penalty: float,
+    ):
+        super().__init__()
+        self.n_params = 3
+        self.gamma_loc = gamma_loc
+        # Initialize gamma parameter scaling weights
+        scale_inits = torch.ones(2, recon_dim) * scale_init
+        self.scale = nn.Parameter(scale_inits, requires_grad=True)
+        self.scale_prior = scale_prior
+        self.scale_penalty = scale_penalty
+
+    def reshape_output_params(self, output_params):
+        alpha_ps, beta_ps, q_ps = torch.chunk(output_params, chunks=3, dim=-1)
+        return torch.stack([alpha_ps, beta_ps, q_ps], -1)
+
+    def compute_loss(self, data, output_params):
+        # Compute the scaled output parameters
+        alphas, betas, qs = self._compute_scaled_params(output_params)
+        # Shift data and replace zeros for convenient NLL calculation
+        nz_ctr_data = torch.where(
+            data == 0, torch.ones_like(data), data - self.gamma_loc
+        )
+        # TODO: Fix problem where NaNs are corrupting gradients
+        gamma = torch.distributions.Gamma(alphas, betas)
+        recon_gamma = -gamma.log_prob(nz_ctr_data)
+        # Replace with zero-inflated likelihoods
+        recon_all = torch.where(
+            data == 0, -torch.log(1 - qs), recon_gamma - torch.log(qs)
+        )
+        # Tack an L2 penalty onto the gamma parameter scaling
+        l2 = torch.sum((self.scale - self.scale_prior) ** 2)
+        l2_penalty = 0.5 * self.scale_penalty * l2
+        # NOTE: Add this here for convenience - may not play nice if using recon sums.
+        # Also, makes recon loss impure.
+        return recon_all + l2_penalty
+
+    def compute_means(self, output_params):
+        # Compute the means of the ZIG distribution
+        alphas, betas, qs = self._compute_scaled_params(output_params)
+        return qs * (alphas / betas + self.gamma_loc)
+
+    def _compute_scaled_params(self, output_params):
+        # Compute sigmoid and clamp to avoid zero-valued rates
+        sig_params = torch.clamp_min(torch.sigmoid(output_params), 1e-5)
+        # Separate the parameters
+        sig_alphas, sig_betas, qs = torch.unbind(sig_params, axis=-1)
+        # Scale alphas and betas by per-neuron multiplicative factors
+        alphas = sig_alphas * self.scale[0]
+        betas = sig_betas * self.scale[1]
+        return alphas, betas, qs

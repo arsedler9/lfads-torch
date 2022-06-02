@@ -1,7 +1,5 @@
-_target_: lfads_torch.datamodules.nlb.LFADSNLBDataModule
-dataset_name: mc_maze
-phase: val
-bin_width: 5
+_target_: lfads_torch.datamodules.base.BasicDataModule
+data_path: /snel/home/arsedle/tmp_radical_data/15Hz/lfads_input_data.h5
 batch_size: 256
 num_workers: 0
 sv_rate: 0.0

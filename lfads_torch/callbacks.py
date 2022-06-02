@@ -62,14 +62,16 @@ class RasterPlot(pl.Callback):
             return
         # Get data samples
         dataloader = trainer.datamodule.val_dataloader()
-        encod_data, recon_data, _, ext, truth, *_ = next(iter(dataloader))
+        batch = next(iter(dataloader))
+        encod_data, recon_data, _, ext, truth, *_ = batch
         # Compute data sizes
         _, steps_encod, neur_encod = encod_data.shape
         _, steps_recon, neur_recon = recon_data.shape
         # Compute model output
-        means, *_, inputs, _ = pl_module(
-            encod_data.to(pl_module.device),
-            ext.to(pl_module.device),
+        device_batch = [t.to(pl_module.device) for t in batch]
+        means, *_, inputs, _ = pl_module.predict_step(
+            batch=device_batch,
+            batch_ix=0,
             sample_posteriors=False,
         )
         # Convert everything to numpy

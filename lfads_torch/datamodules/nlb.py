@@ -12,8 +12,8 @@ class LFADSNLBDataModule(NLBDataModule):
         bin_width: int = 5,
         batch_size: int = 64,
         num_workers: int = 4,
-        dm_sv_rate: float = 0.0,
-        dm_sv_seed: int = 0,
+        sv_rate: float = 0.0,
+        sv_seed: int = 0,
         dm_ic_enc_seq_len: int = 0,
     ):
         """Extends the `NLBDataModule` for LFADS.
@@ -34,10 +34,10 @@ class LFADSNLBDataModule(NLBDataModule):
         num_workers : int, optional
             The number of subprocesses to use for data loading,
             by default 4
-        dm_sv_rate : float, optional
+        sv_rate : float, optional
             The fraction of data elements to use for sample
             validation, by default 0.0
-        dm_sv_seed : int, optional
+        sv_seed : int, optional
             The seed to use for sample validation masks,
             by default 0
         dm_ic_enc_seq_len : int, optional

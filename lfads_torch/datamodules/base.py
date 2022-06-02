@@ -17,8 +17,8 @@ def add_auxiliary_data(datamodule, data_dict={}):
     train_encod_data, train_recon_data, *train_other = datamodule.train_data
     valid_encod_data, valid_recon_data, *valid_other = datamodule.valid_data
     # Create sample validation masks
-    torch.manual_seed(hps.dm_sv_seed)
-    sv_input_dist = Bernoulli(1 - hps.dm_sv_rate)
+    torch.manual_seed(hps.sv_seed)
+    sv_input_dist = Bernoulli(1 - hps.sv_rate)
     train_sv_mask = sv_input_dist.sample(train_encod_data.shape)
     valid_sv_mask = sv_input_dist.sample(valid_encod_data.shape)
     # Remove sample validation during the IC encoder segment
@@ -72,8 +72,8 @@ class BasicDataModule(pl.LightningDataModule):
         data_path: str,
         batch_size: int = 64,
         num_workers: int = 4,
-        dm_sv_rate: float = 0.0,
-        dm_sv_seed: int = 0,
+        sv_rate: float = 0.0,
+        sv_seed: int = 0,
         dm_ic_enc_seq_len: int = 0,
     ):
         super().__init__()

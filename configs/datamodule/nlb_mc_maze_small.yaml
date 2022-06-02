@@ -4,7 +4,7 @@ phase: val
 bin_width: 5
 batch_size: 256
 num_workers: 0
-# Name these params with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
-dm_sv_rate: ${model.sv_rate}
-dm_sv_seed: ${model.sv_seed}
+sv_rate: 0.0
+sv_seed: 0
+# Name with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
 dm_ic_enc_seq_len: ${model.ic_enc_seq_len}

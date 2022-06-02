@@ -8,7 +8,6 @@ from .modules.decoder import Decoder
 from .modules.encoder import Encoder
 from .modules.initializers import init_variance_scaling_
 from .modules.l2 import compute_l2_penalty
-from .modules.overfitting import CoordinatedDropout, SampleValidation
 
 
 class LFADS(pl.LightningModule):
@@ -29,17 +28,13 @@ class LFADS(pl.LightningModule):
         gen_dim: int,
         fac_dim: int,
         dropout_rate: float,
-        cd_rate: float,
-        cd_pass_rate: float,
-        sv_rate: float,
-        sv_seed: int,
         reconstruction: recons.Reconstruction,
         co_prior: nn.Module,
         ic_prior: nn.Module,
         ic_post_var_min: float,
         cell_clip: float,
-        encod_augment: augmentations.DataAugmentation,
-        recon_augment: augmentations.DataAugmentation,
+        train_aug_stack: augmentations.AugmentationStack,
+        valid_aug_stack: augmentations.AugmentationStack,
         loss_scale: float,
         recon_reduce_mean: bool,
         lr_scheduler: bool,
@@ -61,7 +56,7 @@ class LFADS(pl.LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters(
-            ignore=["ic_prior", "co_prior", "encod_augment", "recon_augment"],
+            ignore=["ic_prior", "co_prior", "reconstruction"],
         )
         # Store `co_prior` on `hparams` so it can be accessed in decoder
         self.hparams.co_prior = co_prior
@@ -71,12 +66,6 @@ class LFADS(pl.LightningModule):
         # Create the encoder and decoder
         self.encoder = Encoder(hparams=self.hparams)
         self.decoder = Decoder(hparams=self.hparams)
-        # Create object to manage coordinated dropout
-        self.coord_dropout = CoordinatedDropout(cd_rate, cd_pass_rate, ic_enc_seq_len)
-        # Create object to manage sample validation
-        self.samp_validation = SampleValidation(
-            sv_rate, ic_enc_seq_len, recon_reduce_mean
-        )
         # Create object to manage reconstruction
         self.recon = reconstruction
         # Create the mapping from factors to output parameters
@@ -88,9 +77,9 @@ class LFADS(pl.LightningModule):
             self.co_prior = co_prior
         # Create metric for exponentially-smoothed `valid/recon`
         self.valid_recon_smth = ExpSmoothedMetric()
-        # Store the data augmentation layers
-        self.encod_augment = encod_augment
-        self.recon_augment = recon_augment
+        # Store the data augmentation stacks
+        self.train_aug_stack = train_aug_stack
+        self.valid_aug_stack = valid_aug_stack
 
     def forward(self, data, ext_input, sample_posteriors=False, output_means=True):
         # Pass the data through the encoders
@@ -156,28 +145,21 @@ class LFADS(pl.LightningModule):
 
     def training_step(self, batch, batch_ix):
         hps = self.hparams
+        # Apply input processing and unpack the batch
+        batch = self.train_aug_stack.process_batch(batch)
         encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
-        # Augment encoding and reconstruction data
-        encod_data = self.encod_augment(encod_data)
-        recon_data = self.recon_augment(recon_data)
-        # Apply sample validation processing to the input data
-        sv_data = self.samp_validation.process_inputs(encod_data, sv_mask)
-        # Apply coordinated dropout processing to the input data
-        cd_data = self.coord_dropout.process_inputs(sv_data)
         # Perform the forward pass
         output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
-            cd_data,
+            encod_data,
             ext_input,
             sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss
         recon_all = self.recon.compute_loss(recon_data, output_params)
-        # Apply coordinated dropout processing to the recon costs
-        recon_all = self.coord_dropout.process_outputs(recon_all)
-        # Apply sample validation processing to the recon costs
-        recon_all = self.samp_validation.process_outputs(
-            recon_all, sv_mask, self.log, "train"
+        # Apply losses processing
+        recon_all = self.train_aug_stack.process_losses(
+            recon_all, batch, self.log, "train"
         )
         # Aggregate the heldout cost for logging
         if not hps.recon_reduce_mean:
@@ -219,21 +201,21 @@ class LFADS(pl.LightningModule):
 
     def validation_step(self, batch, batch_ix):
         hps = self.hparams
+        # Apply input processing and unpack the batch
+        batch = self.valid_aug_stack.process_batch(batch)
         encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
-        # Apply sample validation processing to the input data
-        sv_data = self.samp_validation.process_inputs(encod_data, sv_mask)
         # Perform the forward pass
         output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
-            sv_data,
+            encod_data,
             ext_input,
             sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss
         recon_all = self.recon.compute_loss(recon_data, output_params)
-        # Apply sample validation processing to the recon costs
-        recon_all = self.samp_validation.process_outputs(
-            recon_all, sv_mask, self.log, "valid"
+        # Apply output processing
+        recon_all = self.valid_aug_stack.process_losses(
+            recon_all, batch, self.log, "valid"
         )
         # Aggregate the heldout cost for logging
         if not hps.recon_reduce_mean:
@@ -276,3 +258,15 @@ class LFADS(pl.LightningModule):
         self.log_dict(metrics, on_step=False, on_epoch=True)
 
         return loss
+
+    def predict_step(self, batch, batch_ix, sample_posteriors=True):
+        # Apply input processing and unpack the batch
+        batch = self.valid_aug_stack.process_batch(batch)
+        encod_data, ext_input = batch[0], batch[3]
+        # Perform the forward pass
+        return self.forward(
+            encod_data,
+            ext_input,
+            sample_posteriors=sample_posteriors,
+            output_means=True,
+        )

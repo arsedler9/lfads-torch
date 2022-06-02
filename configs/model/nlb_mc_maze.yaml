@@ -16,18 +16,18 @@ ic_dim: 100
 gen_dim: 100
 fac_dim: 40
 
-# --------- dropout --------- #
-dropout_rate: 0.02 # sampled
-cd_rate: 0.3
-cd_pass_rate: 0.0
-sv_rate: 0.0
-sv_seed: 0
-
 # --------- augmentation ---------#
-encod_augment:
-  _target_: lfads_torch.models.modules.augmentations.DataAugmentation
-recon_augment:
-  _target_: lfads_torch.models.modules.augmentations.DataAugmentation
+train_aug_stack:
+  _target_: lfads_torch.models.modules.augmentations.AugmentationStack
+  transforms:
+    - _target_: lfads_torch.models.modules.augmentations.CoordinatedDropout
+      cd_rate: 0.3
+      cd_pass_rate: 0.0
+      ic_enc_seq_len: ${model.ic_enc_seq_len}
+  batch_order: [0]
+  loss_order: [0]
+valid_aug_stack:
+  _target_: lfads_torch.models.modules.augmentations.AugmentationStack
 
 # --------- priors / posteriors --------- #
 reconstruction:
@@ -45,6 +45,7 @@ ic_prior:
 ic_post_var_min: 1.0e-4
 
 # --------- misc --------- #
+dropout_rate: 0.02 # sampled
 cell_clip: 5.0
 loss_scale: 1.0e+4
 recon_reduce_mean: True
