@@ -20,15 +20,10 @@ fac_dim: 40
 train_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
   transforms:
-    - _target_: lfads_torch.models.modules.augmentations.CoordinatedDropout
-      cd_rate: 0.3
-      cd_pass_rate: 0.0
-      ic_enc_seq_len: ${model.ic_enc_seq_len}
     - _target_: lfads_torch.models.modules.augmentations.TemporalShift
       std: 3.0
       max_shift: 6
-  batch_order: [0, 1]
-  loss_order: [0]
+  batch_order: [0]
 valid_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
 
