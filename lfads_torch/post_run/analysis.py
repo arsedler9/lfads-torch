@@ -33,11 +33,10 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
 
     def run_ps_batch(batch):
         # Move the batch to the model device
-        input_data = batch[0].to(model.device)
-        ext = batch[3].to(model.device)
+        batch = [t.to(model.device) for t in batch]
         # Repeatedly compute the model outputs for this batch
         for i in range(num_samples):
-            output = model(input_data, ext, sample_posteriors=True)
+            output = model.predict_step(batch, None, sample_posteriors=True)
             # Use running sum to save memory while averaging
             if i == 0:
                 # Detach output from the graph to save memory on gradients
