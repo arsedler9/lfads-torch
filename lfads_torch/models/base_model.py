@@ -34,7 +34,7 @@ class LFADS(pl.LightningModule):
         ic_post_var_min: float,
         cell_clip: float,
         train_aug_stack: augmentations.AugmentationStack,
-        valid_aug_stack: augmentations.AugmentationStack,
+        infer_aug_stack: augmentations.AugmentationStack,
         loss_scale: float,
         recon_reduce_mean: bool,
         lr_scheduler: bool,
@@ -79,7 +79,7 @@ class LFADS(pl.LightningModule):
         self.valid_recon_smth = ExpSmoothedMetric()
         # Store the data augmentation stacks
         self.train_aug_stack = train_aug_stack
-        self.valid_aug_stack = valid_aug_stack
+        self.infer_aug_stack = infer_aug_stack
 
     def forward(self, data, ext_input, sample_posteriors=False, output_means=True):
         # Pass the data through the encoders
@@ -202,7 +202,7 @@ class LFADS(pl.LightningModule):
     def validation_step(self, batch, batch_ix):
         hps = self.hparams
         # Apply input processing and unpack the batch
-        batch = self.valid_aug_stack.process_batch(batch)
+        batch = self.infer_aug_stack.process_batch(batch)
         encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
         # Perform the forward pass
         output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
@@ -214,7 +214,7 @@ class LFADS(pl.LightningModule):
         # Compute the reconstruction loss
         recon_all = self.recon.compute_loss(recon_data, output_params)
         # Apply output processing
-        recon_all = self.valid_aug_stack.process_losses(
+        recon_all = self.infer_aug_stack.process_losses(
             recon_all, batch, self.log, "valid"
         )
         # Aggregate the heldout cost for logging
@@ -261,7 +261,7 @@ class LFADS(pl.LightningModule):
 
     def predict_step(self, batch, batch_ix, sample_posteriors=True):
         # Apply input processing and unpack the batch
-        batch = self.valid_aug_stack.process_batch(batch)
+        batch = self.infer_aug_stack.process_batch(batch)
         encod_data, ext_input = batch[0], batch[3]
         # Perform the forward pass
         return self.forward(

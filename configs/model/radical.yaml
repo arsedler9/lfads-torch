@@ -27,7 +27,7 @@ train_aug_stack:
       ic_enc_seq_len: ${model.ic_enc_seq_len}
   batch_order: [0, 1]
   loss_order: [0, 1]
-valid_aug_stack:
+infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
   transforms:
     - _target_: lfads_torch.models.modules.augmentations.SelectiveBackpropThruTime

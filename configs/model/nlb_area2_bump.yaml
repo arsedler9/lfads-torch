@@ -26,7 +26,7 @@ train_aug_stack:
       ic_enc_seq_len: ${model.ic_enc_seq_len}
   batch_order: [0]
   loss_order: [0]
-valid_aug_stack:
+infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
 
 # --------- priors / posteriors --------- #

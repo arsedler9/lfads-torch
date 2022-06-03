@@ -24,7 +24,7 @@ train_aug_stack:
       std: 3.0
       max_shift: 6
   batch_order: [0]
-valid_aug_stack:
+infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
 
 # --------- priors / posteriors --------- #
