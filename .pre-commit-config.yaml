@@ -15,6 +15,7 @@ repos:
     rev: 20.8b1
     hooks:
       - id: black
+        args: ["--fast"]
 
   # python import sorting
   - repo: https://github.com/PyCQA/isort

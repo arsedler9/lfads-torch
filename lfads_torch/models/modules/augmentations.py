@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from torch import nn
 from torch.distributions import Bernoulli
 
 
@@ -34,13 +33,52 @@ class AugmentationStack:
         return losses
 
 
-class TemporalShift(nn.Module):
+class SpikeJitter:
+    def __init__(self, width=2):
+        self.width = width
+
+    def process_batch(self, batch):
+        encod_data, recon_data, *other_data = batch
+        encod_data = self._jitter_tensor(encod_data)
+        recon_data = self._jitter_tensor(recon_data)
+        return encod_data, recon_data, *other_data
+
+    def _jitter_tensor(self, data):
+        max_spike_ct = int(data.max())
+        # Get indices of all spikes
+        all_indices = torch.cat(
+            [(data >= count).nonzero() for count in range(1, max_spike_ct + 1)],
+        )
+        # Sample shifts to add to the spikes
+        shifts = torch.randint(
+            low=-self.width,
+            high=self.width + 1,
+            size=(len(all_indices),),
+            device=data.device,
+        )
+        # Split up the indices to shift only the time index
+        b_i, t_i, n_i = torch.unbind(all_indices, dim=1)
+        t_i += shifts
+        # Reflect on the boundaries so we don't lose spikes
+        B, T, N = data.shape
+        t_i = torch.abs(t_i)
+        oob_ixs = torch.nonzero(t_i > T - 1)
+        t_i[oob_ixs] = 2 * (T - 1) - t_i[oob_ixs]
+        # Recreate all indices and count the unique ones
+        all_indices = torch.stack([b_i, t_i, n_i], 1)
+        unique_indices, counts = torch.unique(all_indices, return_counts=True, dim=0)
+        # Fill in a tensor of jittered data
+        b_i, t_i, n_i = torch.unbind(unique_indices, dim=1)
+        jittered_data = torch.zeros(B, T, N, device=data.device)
+        jittered_data[b_i, t_i, n_i] = counts.float()
+        return jittered_data
+
+
+class TemporalShift:
     def __init__(self, std=3.0, max_shift=6):
-        super().__init__()
         self.std = std
         self.max = max_shift
 
-    @torch.no_grad()
     def process_batch(self, batch):
         encod_data, recon_data, *other_data = batch
         encod_data = self._shift_tensor(encod_data)
