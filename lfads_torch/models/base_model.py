@@ -214,12 +214,14 @@ class LFADS(pl.LightningModule):
         # Compute batch sizes for logging
         batch_sizes = [len(d) for d in encod_data]
         # Log per-session metrics
-        self.log_dict(
-            {f"train/recon/sess{s}": m for s, m in enumerate(sess_recon)},
-            on_step=False,
-            on_epoch=True,
-            batch_size=batch_sizes[0],
-        )
+        for i, (value, batch_size) in enumerate(zip(sess_recon, batch_sizes)):
+            self.log(
+                name=f"train/recon/sess{i}",
+                value=value,
+                on_step=False,
+                on_epoch=True,
+                batch_size=batch_size,
+            )
         # Log overall metrics
         self.log_dict(
             {
@@ -297,12 +299,14 @@ class LFADS(pl.LightningModule):
         # Compute batch sizes for logging
         batch_sizes = [len(d) for d in encod_data]
         # Log per-session metrics
-        self.log_dict(
-            {f"valid/recon/sess{s}": m for s, m in enumerate(sess_recon)},
-            on_step=False,
-            on_epoch=True,
-            batch_size=batch_sizes[0],
-        )
+        for i, (value, batch_size) in enumerate(zip(sess_recon, batch_sizes)):
+            self.log(
+                name=f"valid/recon/sess{i}",
+                value=value,
+                on_step=False,
+                on_epoch=True,
+                batch_size=batch_size,
+            )
         # Log overall metrics
         self.log_dict(
             {
