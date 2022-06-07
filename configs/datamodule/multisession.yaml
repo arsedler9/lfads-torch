@@ -1,11 +1,10 @@
 _target_: lfads_torch.datamodules.base.BasicDataModule
-# TODO: Switch to a more realistic multi-session set
 data_paths:
-  - /snel/home/arsedle/tmp_radical_data/7Hz/lfads_input_data.h5
-  - /snel/home/arsedle/tmp_radical_data/10Hz/lfads_input_data.h5
-  - /snel/home/arsedle/tmp_radical_data/13Hz/lfads_input_data.h5
-  - /snel/home/arsedle/tmp_radical_data/15Hz/lfads_input_data.h5
-  - /snel/home/arsedle/tmp_radical_data/20Hz/lfads_input_data.h5
+  - /snel/share/share/derived/NW_Emory_Data_Sharing/Jango/2015/stitched/binsize_20ms/run_010/lfads_input/lfads_Jango_20150730_001.h5
+  - /snel/share/share/derived/NW_Emory_Data_Sharing/Jango/2015/stitched/binsize_20ms/run_010/lfads_input/lfads_Jango_20150731_001.h5
+  - /snel/share/share/derived/NW_Emory_Data_Sharing/Jango/2015/stitched/binsize_20ms/run_010/lfads_input/lfads_Jango_20150827_001.h5
+  - /snel/share/share/derived/NW_Emory_Data_Sharing/Jango/2015/stitched/binsize_20ms/run_010/lfads_input/lfads_Jango_20151029_001.h5
+  - /snel/share/share/derived/NW_Emory_Data_Sharing/Jango/2015/stitched/binsize_20ms/run_010/lfads_input/lfads_Jango_20151102_001.h5
 batch_size: 256
 num_workers: 0
 sv_rate: 0.0

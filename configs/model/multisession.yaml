@@ -2,8 +2,8 @@ _target_: lfads_torch.models.base_model.LFADS
 
 # --------- architecture --------- #
 encod_data_dim: ${model.fac_dim}
-encod_seq_len: 90
-recon_seq_len: 90
+encod_seq_len: 30
+recon_seq_len: 30
 ext_input_dim: 0
 ic_enc_seq_len: 0
 ic_enc_dim: 100
@@ -20,91 +20,59 @@ readin:
   _target_: torch.nn.ModuleList
   modules:
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
-      in_features: 278
+      in_features: 100
       out_features: ${model.encod_data_dim}
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
-      in_features: 278
+      in_features: 100
       out_features: ${model.encod_data_dim}
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
-      in_features: 278
+      in_features: 100
       out_features: ${model.encod_data_dim}
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
-      in_features: 278
+      in_features: 100
       out_features: ${model.encod_data_dim}
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
-      in_features: 278
+      in_features: 100
       out_features: ${model.encod_data_dim}
 readout:
   _target_: torch.nn.ModuleList
   modules:
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
       in_features: ${model.fac_dim}
-      out_features: 834 # 3 * 278
+      out_features: 100
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
       in_features: ${model.fac_dim}
-      out_features: 834 # 3 * 278
+      out_features: 100
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
       in_features: ${model.fac_dim}
-      out_features: 834 # 3 * 278
+      out_features: 100
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
       in_features: ${model.fac_dim}
-      out_features: 834 # 3 * 278
+      out_features: 100
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
       in_features: ${model.fac_dim}
-      out_features: 834 # 3 * 278
+      out_features: 100
 
 # --------- augmentation --------- #
 train_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
   transforms:
-    - _target_: lfads_torch.models.modules.augmentations.SelectiveBackpropThruTime
     - _target_: lfads_torch.models.modules.augmentations.CoordinatedDropout
       cd_rate: 0.3
       cd_pass_rate: 0.0
       ic_enc_seq_len: ${model.ic_enc_seq_len}
-  batch_order: [0, 1]
-  loss_order: [0, 1]
-infer_aug_stack:
-  _target_: lfads_torch.models.modules.augmentations.AugmentationStack
-  transforms:
-    - _target_: lfads_torch.models.modules.augmentations.SelectiveBackpropThruTime
   batch_order: [0]
   loss_order: [0]
+infer_aug_stack:
+  _target_: lfads_torch.models.modules.augmentations.AugmentationStack
 
 # --------- priors / posteriors --------- #
 reconstruction:
-  _target_: torch.nn.ModuleList
-  modules:
-    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
-      recon_dim: 278
-      gamma_loc: 0.1
-      scale_init: 20.0
-      scale_prior: 20.0
-      scale_penalty: 1.0e-4
-    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
-      recon_dim: 278
-      gamma_loc: 0.1
-      scale_init: 20.0
-      scale_prior: 20.0
-      scale_penalty: 1.0e-4
-    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
-      recon_dim: 278
-      gamma_loc: 0.1
-      scale_init: 20.0
-      scale_prior: 20.0
-      scale_penalty: 1.0e-4
-    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
-      recon_dim: 278
-      gamma_loc: 0.1
-      scale_init: 20.0
-      scale_prior: 20.0
-      scale_penalty: 1.0e-4
-    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
-      recon_dim: 278
-      gamma_loc: 0.1
-      scale_init: 20.0
-      scale_prior: 20.0
-      scale_penalty: 1.0e-4
+  - _target_: lfads_torch.models.modules.recons.Poisson
+  - _target_: lfads_torch.models.modules.recons.Poisson
+  - _target_: lfads_torch.models.modules.recons.Poisson
+  - _target_: lfads_torch.models.modules.recons.Poisson
+  - _target_: lfads_torch.models.modules.recons.Poisson
 co_prior:
   _target_: lfads_torch.models.modules.priors.AutoregressiveMultivariateNormal
   tau: 10.0

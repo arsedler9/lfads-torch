@@ -185,7 +185,9 @@ class LFADS(pl.LightningModule):
         # Aggregate the heldout cost for logging
         if not hps.recon_reduce_mean:
             recon_all = [torch.sum(ra, dim=(1, 2)) for ra in recon_all]
-        recon = torch.mean(torch.stack([ra.mean() for ra in recon_all]))
+        # Compute reconstruction loss for each session
+        sess_recon = [ra.mean() for ra in recon_all]
+        recon = torch.mean(torch.stack(sess_recon))
         # Compute the L2 penalty on recurrent weights
         l2 = compute_l2_penalty(self, self.hparams)
         l2_ramp = (self.current_epoch - hps.l2_start_epoch) / (
@@ -209,19 +211,32 @@ class LFADS(pl.LightningModule):
         r2 = torch.mean(
             torch.stack([r2_score(om, t) for om, t in zip(output_means, truth)])
         )
-        # Log all of the metrics
-        metrics = {
-            "train/loss": loss,
-            "train/recon": recon,
-            "train/r2": r2,
-            "train/wt_l2": l2,
-            "train/wt_l2/ramp": l2_ramp,
-            "train/wt_kl": ic_kl + co_kl,
-            "train/wt_kl/ic": ic_kl,
-            "train/wt_kl/co": co_kl,
-            "train/wt_kl/ramp": kl_ramp,
-        }
-        self.log_dict(metrics, on_step=False, on_epoch=True)
+        # Compute batch sizes for logging
+        batch_sizes = [len(d) for d in encod_data]
+        # Log per-session metrics
+        self.log_dict(
+            {f"train/recon/sess{s}": m for s, m in enumerate(sess_recon)},
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch_sizes[0],
+        )
+        # Log overall metrics
+        self.log_dict(
+            {
+                "train/loss": loss,
+                "train/recon": recon,
+                "train/r2": r2,
+                "train/wt_l2": l2,
+                "train/wt_l2/ramp": l2_ramp,
+                "train/wt_kl": ic_kl + co_kl,
+                "train/wt_kl/ic": ic_kl,
+                "train/wt_kl/co": co_kl,
+                "train/wt_kl/ramp": kl_ramp,
+            },
+            on_step=False,
+            on_epoch=True,
+            batch_size=sum(batch_sizes),
+        )
 
         return loss
 
@@ -251,7 +266,9 @@ class LFADS(pl.LightningModule):
         # Aggregate the reconstruction cost
         if not hps.recon_reduce_mean:
             recon_all = [torch.sum(ra, dim=(1, 2)) for ra in recon_all]
-        recon = torch.mean(torch.stack([ra.mean() for ra in recon_all]))
+        # Compute reconstruction loss for each session
+        sess_recon = [ra.mean() for ra in recon_all]
+        recon = torch.mean(torch.stack(sess_recon))
         # Update the smoothed reconstruction loss
         self.valid_recon_smth.update(recon)
         # Compute the L2 penalty on recurrent weights
@@ -277,22 +294,35 @@ class LFADS(pl.LightningModule):
         r2 = torch.mean(
             torch.stack([r2_score(om, t) for om, t in zip(output_means, truth)])
         )
-        # Log all of the metrics
-        metrics = {
-            "valid/loss": loss,
-            "valid/recon": recon,
-            "valid/recon_smth": self.valid_recon_smth,
-            "valid/r2": r2,
-            "valid/wt_l2": l2,
-            "valid/wt_l2/ramp": l2_ramp,
-            "valid/wt_kl": ic_kl + co_kl,
-            "valid/wt_kl/ic": ic_kl,
-            "valid/wt_kl/co": co_kl,
-            "valid/wt_kl/ramp": kl_ramp,
-            "hp_metric": recon,
-            "cur_epoch": float(self.current_epoch),
-        }
-        self.log_dict(metrics, on_step=False, on_epoch=True)
+        # Compute batch sizes for logging
+        batch_sizes = [len(d) for d in encod_data]
+        # Log per-session metrics
+        self.log_dict(
+            {f"valid/recon/sess{s}": m for s, m in enumerate(sess_recon)},
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch_sizes[0],
+        )
+        # Log overall metrics
+        self.log_dict(
+            {
+                "valid/loss": loss,
+                "valid/recon": recon,
+                "valid/recon_smth": self.valid_recon_smth,
+                "valid/r2": r2,
+                "valid/wt_l2": l2,
+                "valid/wt_l2/ramp": l2_ramp,
+                "valid/wt_kl": ic_kl + co_kl,
+                "valid/wt_kl/ic": ic_kl,
+                "valid/wt_kl/co": co_kl,
+                "valid/wt_kl/ramp": kl_ramp,
+                "hp_metric": recon,
+                "cur_epoch": float(self.current_epoch),
+            },
+            on_step=False,
+            on_epoch=True,
+            batch_size=sum(batch_sizes),
+        )
 
         return loss
 
