@@ -1,7 +1,7 @@
 _target_: lfads_torch.models.base_model.LFADS
 
 # --------- architecture --------- #
-encod_data_dim: 278
+encod_data_dim: ${model.fac_dim}
 encod_seq_len: 90
 recon_seq_len: 90
 ext_input_dim: 0
@@ -17,10 +17,38 @@ fac_dim: 40
 
 # --------- readin / readout --------- #
 readin:
-  - _target_: torch.nn.Identity
+  _target_: torch.nn.ModuleList
+  modules:
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: 278
+      out_features: ${model.encod_data_dim}
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: 278
+      out_features: ${model.encod_data_dim}
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: 278
+      out_features: ${model.encod_data_dim}
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: 278
+      out_features: ${model.encod_data_dim}
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: 278
+      out_features: ${model.encod_data_dim}
 readout:
   _target_: torch.nn.ModuleList
   modules:
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: ${model.fac_dim}
+      out_features: 834 # 3 * 278
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: ${model.fac_dim}
+      out_features: 834 # 3 * 278
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: ${model.fac_dim}
+      out_features: 834 # 3 * 278
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: ${model.fac_dim}
+      out_features: 834 # 3 * 278
     - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
       in_features: ${model.fac_dim}
       out_features: 834 # 3 * 278
@@ -48,7 +76,31 @@ reconstruction:
   _target_: torch.nn.ModuleList
   modules:
     - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
-      recon_dim: ${model.recon_data_dim}
+      recon_dim: 278
+      gamma_loc: 0.1
+      scale_init: 20.0
+      scale_prior: 20.0
+      scale_penalty: 1.0e-4
+    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
+      recon_dim: 278
+      gamma_loc: 0.1
+      scale_init: 20.0
+      scale_prior: 20.0
+      scale_penalty: 1.0e-4
+    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
+      recon_dim: 278
+      gamma_loc: 0.1
+      scale_init: 20.0
+      scale_prior: 20.0
+      scale_penalty: 1.0e-4
+    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
+      recon_dim: 278
+      gamma_loc: 0.1
+      scale_init: 20.0
+      scale_prior: 20.0
+      scale_penalty: 1.0e-4
+    - _target_: lfads_torch.models.modules.recons.ZeroInflatedGamma
+      recon_dim: 278
       gamma_loc: 0.1
       scale_init: 20.0
       scale_prior: 20.0

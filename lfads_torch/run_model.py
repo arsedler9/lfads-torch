@@ -39,7 +39,7 @@ def run_model(
         pl.seed_everything(config.seed, workers=True)
 
     # Instantiate `LightningDataModule` and `LightningModule`
-    datamodule = instantiate(config.datamodule)
+    datamodule = instantiate(config.datamodule, _convert_="all")
     model = instantiate(config.model)
 
     # If `checkpoint_dir` is passed, find the most recent checkpoint in the directory

@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pytorch_lightning as pl
+import torch
+
+from .utils import transpose_lists
 
 plt.switch_backend("Agg")
 
@@ -60,50 +63,55 @@ class RasterPlot(pl.Callback):
         writer = get_tensorboard_summary_writer(trainer.loggers)
         if writer is None:
             return
-        # Get data samples
+        # Get data samples from the dataloaders
         dataloader = trainer.datamodule.val_dataloader()
         batch = next(iter(dataloader))
-        encod_data, recon_data, _, ext, truth, *_ = batch
-        # Compute data sizes
-        _, steps_encod, neur_encod = encod_data.shape
-        _, steps_recon, neur_recon = recon_data.shape
+        encod_data, recon_data, ext_input, truth, *_ = transpose_lists(batch)
         # Compute model output
-        device_batch = [t.to(pl_module.device) for t in batch]
+        device_batch = [[t.to(pl_module.device) for t in sess_b] for sess_b in batch]
         means, *_, inputs, _ = pl_module.predict_step(
             batch=device_batch,
-            batch_ix=0,
+            batch_ix=None,
             sample_posteriors=False,
         )
-        # Convert everything to numpy
-        recon_data = recon_data.detach().cpu().numpy()
-        truth = truth.detach().cpu().numpy()
-        means = means.detach().cpu().numpy()
-        inputs = inputs.detach().cpu().numpy()
-        if np.all(np.isnan(truth)):
-            plot_arrays = [recon_data, means, inputs]
-            height_ratios = [3, 3, 1]
-        else:
-            plot_arrays = [recon_data, truth, means, inputs]
-            height_ratios = [3, 3, 3, 1]
-        # Create subplots
-        fig, axes = plt.subplots(
-            len(plot_arrays),
-            self.n_samples,
-            sharex=True,
-            sharey="row",
-            figsize=(3 * self.n_samples, 10),
-            gridspec_kw={"height_ratios": height_ratios},
-        )
-        for i, ax_col in enumerate(axes.T):
-            for j, (ax, array) in enumerate(zip(ax_col, plot_arrays)):
-                if j < len(plot_arrays) - 1:
-                    ax.imshow(array[i].T, interpolation="none", aspect="auto")
-                    ax.vlines(steps_encod, 0, neur_recon, color="orange")
-                    ax.hlines(neur_encod, 0, steps_recon, color="orange")
-                    ax.set_xlim(0, steps_recon)
-                    ax.set_ylim(0, neur_recon)
-                else:
-                    ax.plot(array[i])
-        plt.tight_layout()
-        # Log the plot to tensorboard
-        writer.add_figure("raster_plot", fig, trainer.global_step)
+        split_ixs = [len(ed) for ed in encod_data]
+        inputs = torch.split(inputs, split_ixs)
+        ezip = enumerate(zip(encod_data, recon_data, truth, means, inputs))
+        for sess, (ed, rd, t, m, i) in ezip:
+            # Convert everything to numpy
+            rd = rd.detach().cpu().numpy()
+            t = t.detach().cpu().numpy()
+            m = m.detach().cpu().numpy()
+            i = i.detach().cpu().numpy()
+            # Compute data sizes
+            _, steps_encod, neur_encod = ed.shape
+            _, steps_recon, neur_recon = rd.shape
+            # Decide on how to plot panels
+            if np.all(np.isnan(t)):
+                plot_arrays = [rd, m, i]
+                height_ratios = [3, 3, 1]
+            else:
+                plot_arrays = [rd, t, m, i]
+                height_ratios = [3, 3, 3, 1]
+            # Create subplots
+            fig, axes = plt.subplots(
+                len(plot_arrays),
+                self.n_samples,
+                sharex=True,
+                sharey="row",
+                figsize=(3 * self.n_samples, 10),
+                gridspec_kw={"height_ratios": height_ratios},
+            )
+            for i, ax_col in enumerate(axes.T):
+                for j, (ax, array) in enumerate(zip(ax_col, plot_arrays)):
+                    if j < len(plot_arrays) - 1:
+                        ax.imshow(array[i].T, interpolation="none", aspect="auto")
+                        ax.vlines(steps_encod, 0, neur_recon, color="orange")
+                        ax.hlines(neur_encod, 0, steps_recon, color="orange")
+                        ax.set_xlim(0, steps_recon)
+                        ax.set_ylim(0, neur_recon)
+                    else:
+                        ax.plot(array[i])
+            plt.tight_layout()
+            # Log the plot to tensorboard
+            writer.add_figure(f"raster_plot/sess{sess}", fig, trainer.global_step)

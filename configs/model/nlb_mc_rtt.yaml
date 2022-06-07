@@ -2,7 +2,6 @@ _target_: lfads_torch.models.base_model.LFADS
 
 # --------- architecture --------- #
 encod_data_dim: 98
-recon_data_dim: 130
 encod_seq_len: 120
 recon_seq_len: 160
 ext_input_dim: 0
@@ -16,7 +15,17 @@ ic_dim: 100
 gen_dim: 100
 fac_dim: 40
 
-# --------- augmentation ---------#
+# --------- readin / readout --------- #
+readin:
+  - _target_: torch.nn.Identity
+readout:
+  _target_: torch.nn.ModuleList
+  modules:
+    - _target_: lfads_torch.models.modules.readin_readout.FanInLinear
+      in_features: ${model.fac_dim}
+      out_features: 130
+
+# --------- augmentation --------- #
 train_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
   transforms:
@@ -31,7 +40,7 @@ infer_aug_stack:
 
 # --------- priors / posteriors --------- #
 reconstruction:
-  _target_: lfads_torch.models.modules.recons.Poisson
+  - _target_: lfads_torch.models.modules.recons.Poisson
 co_prior:
   _target_: lfads_torch.models.modules.priors.AutoregressiveMultivariateNormal
   tau: 10.0

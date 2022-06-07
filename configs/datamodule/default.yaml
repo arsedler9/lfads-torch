@@ -1,5 +1,6 @@
 _target_: lfads_torch.datamodules.base.BasicDataModule
-data_path: /snel/share/runs/PBT/paper-fix/lfadslite-testing/data_chaotic/chaotic_chaotic_rnn_inputs_2_dataset_N50_S50_1000trials
+data_paths:
+  - /snel/share/runs/PBT/paper-fix/lfadslite-testing/data_chaotic/chaotic_chaotic_rnn_inputs_2_dataset_N50_S50_1000trials
 batch_size: 256
 num_workers: 0
 sv_rate: 0.0

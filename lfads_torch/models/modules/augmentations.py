@@ -32,6 +32,11 @@ class AugmentationStack:
             losses = transform.process_losses(losses, batch, log_fn, data_split)
         return losses
 
+    def reset(self):
+        for transform in {*self.batch_transforms, *self.loss_transforms}:
+            if hasattr(transform, "reset"):
+                transform.reset()
+
 
 class SpikeJitter:
     def __init__(self, width=2):
@@ -108,6 +113,8 @@ class CoordinatedDropout:
         self.ic_enc_seq_len = ic_enc_seq_len
         self.cd_input_dist = Bernoulli(1 - cd_rate)
         self.cd_pass_dist = Bernoulli(cd_pass_rate)
+        # Use FIFO for grad masks
+        self.grad_masks = []
 
     def process_batch(self, batch):
         encod_data, *other_data = batch
@@ -120,12 +127,12 @@ class CoordinatedDropout:
         pass_mask = self.cd_pass_dist.sample(maskable_data.shape).to(device)
         # Save the gradient mask for `process_outputs`
         if self.cd_rate > 0:
-            self.grad_mask = torch.logical_or(
-                torch.logical_not(cd_mask), pass_mask
-            ).float()
+            grad_mask = torch.logical_or(torch.logical_not(cd_mask), pass_mask).float()
         else:
             # If cd_rate == 0, turn off CD
-            self.grad_mask = torch.ones_like(cd_mask)
+            grad_mask = torch.ones_like(cd_mask)
+        # Store the grad_mask for later
+        self.grad_masks.append(grad_mask)
         # Mask and scale post-CD input so it has the same sum as the original data
         cd_masked_data = maskable_data * cd_mask / (1 - self.cd_rate)
         # Concatenate the data from the IC encoder segment if using
@@ -134,14 +141,19 @@ class CoordinatedDropout:
         return cd_input, *other_data
 
     def process_losses(self, recon_loss, *args):
+        # First-in-first-out
+        grad_mask = self.grad_masks.pop(0)
         # Expand mask, but don't block gradients
-        grad_mask = pad_mask(self.grad_mask, recon_loss, 1.0)
+        grad_mask = pad_mask(grad_mask, recon_loss, 1.0)
         # Block gradients with respect to the masked outputs
         grad_loss = recon_loss * grad_mask
         nograd_loss = (recon_loss * (1 - grad_mask)).detach()
         cd_loss = grad_loss + nograd_loss
 
         return cd_loss
+
+    def reset(self):
+        self.grad_masks = []
 
 
 class SampleValidation:
@@ -193,12 +205,13 @@ class SampleValidation:
 
 class SelectiveBackpropThruTime:
     def __init__(self):
-        self.isnan_mask = None
+        # Use FIFO for NaN masks
+        self.isnan_masks = []
 
     def process_batch(self, batch):
         encod_data, recon_data, *other_data = batch
         # Remember where NaNs exist in the recon data
-        self.isnan_mask = torch.isnan(recon_data)
+        self.isnan_masks.append(torch.isnan(recon_data))
         # Replace missing encod data with zeros
         encod_data_interp = torch.nan_to_num(encod_data, nan=0)
         # Temporarily replace missing recon data with tens
@@ -207,8 +220,12 @@ class SelectiveBackpropThruTime:
         return encod_data_interp, recon_data_interp, *other_data
 
     def process_losses(self, recon_loss, *args):
-        assert self.isnan_mask is not None
+        # First-in-first-out
+        isnan_mask = self.isnan_masks.pop(0)
         # Convert missing losses into zeros and scale up so mean is unchanged
-        frac_isnan = self.isnan_mask.sum() / self.isnan_mask.numel()
-        recon_loss[self.isnan_mask] = 0
+        frac_isnan = isnan_mask.sum() / isnan_mask.numel()
+        recon_loss[isnan_mask] = 0
         return recon_loss / (1 - frac_isnan)
+
+    def reset(self):
+        self.isnan_masks = []

@@ -1,5 +1,6 @@
 _target_: lfads_torch.datamodules.base.BasicDataModule
-data_path: /snel/share/share/derived/Tresch/nwb_lfads/runs/data_limited_4/cycles_full/datasets/lfads_J10_s20_i0_emg_2.h5
+data_paths:
+  - /snel/share/share/derived/Tresch/nwb_lfads/runs/data_limited_4/cycles_full/datasets/lfads_J10_s20_i0_emg_2.h5
 batch_size: 256
 num_workers: 0
 sv_rate: 0.0

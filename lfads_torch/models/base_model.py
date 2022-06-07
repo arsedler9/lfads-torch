@@ -3,10 +3,10 @@ import torch
 from torch import nn
 
 from ..metrics import ExpSmoothedMetric, r2_score
-from .modules import augmentations, recons
+from ..utils import transpose_lists
+from .modules import augmentations
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
-from .modules.initializers import init_variance_scaling_
 from .modules.l2 import compute_l2_penalty
 
 
@@ -14,7 +14,6 @@ class LFADS(pl.LightningModule):
     def __init__(
         self,
         encod_data_dim: int,
-        recon_data_dim: int,
         encod_seq_len: int,
         recon_seq_len: int,
         ext_input_dim: int,
@@ -28,13 +27,15 @@ class LFADS(pl.LightningModule):
         gen_dim: int,
         fac_dim: int,
         dropout_rate: float,
-        reconstruction: recons.Reconstruction,
+        reconstruction: nn.ModuleList,
         co_prior: nn.Module,
         ic_prior: nn.Module,
         ic_post_var_min: float,
         cell_clip: float,
         train_aug_stack: augmentations.AugmentationStack,
         infer_aug_stack: augmentations.AugmentationStack,
+        readin: nn.ModuleList,
+        readout: nn.ModuleList,
         loss_scale: float,
         recon_reduce_mean: bool,
         lr_scheduler: bool,
@@ -56,21 +57,24 @@ class LFADS(pl.LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters(
-            ignore=["ic_prior", "co_prior", "reconstruction"],
+            ignore=["ic_prior", "co_prior", "reconstruction", "readin", "readout"],
         )
         # Store `co_prior` on `hparams` so it can be accessed in decoder
         self.hparams.co_prior = co_prior
+        # Make sure the nn.ModuleList arguments are all the same length
+        assert len(readin) == len(readout) == len(reconstruction)
 
+        # Store the readin network
+        self.readin = readin
         # Decide whether to use the controller
         self.use_con = all([ci_enc_dim > 0, con_dim > 0, co_dim > 0])
         # Create the encoder and decoder
         self.encoder = Encoder(hparams=self.hparams)
         self.decoder = Decoder(hparams=self.hparams)
+        # Store the readout network
+        self.readout = readout
         # Create object to manage reconstruction
         self.recon = reconstruction
-        # Create the mapping from factors to output parameters
-        self.output_linear = nn.Linear(fac_dim, recon_data_dim * self.recon.n_params)
-        init_variance_scaling_(self.output_linear.weight, fac_dim)
         # Store the trainable priors
         self.ic_prior = ic_prior
         if self.use_con:
@@ -82,8 +86,14 @@ class LFADS(pl.LightningModule):
         self.infer_aug_stack = infer_aug_stack
 
     def forward(self, data, ext_input, sample_posteriors=False, output_means=True):
+        # Use list of tensors to allow efficient computation on data of different sizes
+        assert type(data) == list and len(data) == len(self.readin)
+        # Keep track of sizes so we can split the data
+        split_ixs = [len(d) for d in data]
+        # Pass the data through the readin networks
+        encod_data = torch.cat([readin(d) for readin, d in zip(self.readin, data)])
         # Pass the data through the encoders
-        ic_mean, ic_std, ci = self.encoder(data)
+        ic_mean, ic_std, ci = self.encoder(encod_data)
         # Create the posterior distribution over initial conditions
         ic_post = self.ic_prior.make_posterior(ic_mean, ic_std)
         # Choose to take a sample or to pass the mean
@@ -99,12 +109,18 @@ class LFADS(pl.LightningModule):
             factors,
         ) = self.decoder(ic_samp, ci, ext_input, sample_posteriors=sample_posteriors)
         # Convert the factors representation into output distribution parameters
-        output_params = self.output_linear(factors)
+        facs_split = torch.split(factors, split_ixs)
+        output_params = [readout(f) for readout, f in zip(self.readout, facs_split)]
         # Separate parameters of the output distribution
-        output_params = self.recon.reshape_output_params(output_params)
+        output_params = [
+            recon.reshape_output_params(op)
+            for recon, op in zip(self.recon, output_params)
+        ]
         # Convert the output parameters to means if requested
         if output_means:
-            output_params = self.recon.compute_means(output_params)
+            output_params = [
+                recon.compute_means(op) for recon, op in zip(self.recon, output_params)
+            ]
         # Return the parameter estimates and all intermediate activations
         return (
             output_params,
@@ -143,28 +159,33 @@ class LFADS(pl.LightningModule):
         else:
             return optimizer
 
-    def training_step(self, batch, batch_ix):
+    def training_step(self, batch, batch_idx):
         hps = self.hparams
-        # Apply input processing and unpack the batch
-        batch = self.train_aug_stack.process_batch(batch)
-        encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
+        # Process the batch for each session
+        batch = [self.train_aug_stack.process_batch(sess_b) for sess_b in batch]
+        # Unpack the batch
+        encod_data, recon_data, ext_input, truth, *_ = transpose_lists(batch)
         # Perform the forward pass
         output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
             encod_data,
-            ext_input,
+            torch.cat(ext_input),
             sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss
-        recon_all = self.recon.compute_loss(recon_data, output_params)
+        recon_all = [
+            recon.compute_loss(rd, op)
+            for recon, rd, op in zip(self.recon, recon_data, output_params)
+        ]
         # Apply losses processing
-        recon_all = self.train_aug_stack.process_losses(
-            recon_all, batch, self.log, "train"
-        )
+        recon_all = [
+            self.train_aug_stack.process_losses(ra, sess_b, self.log, "train")
+            for ra, sess_b in zip(recon_all, batch)
+        ]
         # Aggregate the heldout cost for logging
         if not hps.recon_reduce_mean:
-            recon_all = torch.sum(recon_all, dim=(1, 2))
-        recon = torch.mean(recon_all)
+            recon_all = [torch.sum(ra, dim=(1, 2)) for ra in recon_all]
+        recon = torch.mean(torch.stack([ra.mean() for ra in recon_all]))
         # Compute the L2 penalty on recurrent weights
         l2 = compute_l2_penalty(self, self.hparams)
         l2_ramp = (self.current_epoch - hps.l2_start_epoch) / (
@@ -182,7 +203,12 @@ class LFADS(pl.LightningModule):
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
-        r2 = r2_score(self.recon.compute_means(output_params), truth)
+        output_means = [
+            recon.compute_means(op) for recon, op in zip(self.recon, output_params)
+        ]
+        r2 = torch.mean(
+            torch.stack([r2_score(om, t) for om, t in zip(output_means, truth)])
+        )
         # Log all of the metrics
         metrics = {
             "train/loss": loss,
@@ -199,28 +225,34 @@ class LFADS(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch, batch_ix):
+    def validation_step(self, batch, batch_idx):
         hps = self.hparams
-        # Apply input processing and unpack the batch
-        batch = self.infer_aug_stack.process_batch(batch)
-        encod_data, recon_data, sv_mask, ext_input, truth, *_ = batch
+        # Process the batch for each session
+        batch = [self.infer_aug_stack.process_batch(sess_b) for sess_b in batch]
+        # Unpack the batch
+        encod_data, recon_data, ext_input, truth, *_ = transpose_lists(batch)
         # Perform the forward pass
         output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
             encod_data,
-            ext_input,
+            torch.cat(ext_input),
             sample_posteriors=True,
             output_means=False,
         )
         # Compute the reconstruction loss
-        recon_all = self.recon.compute_loss(recon_data, output_params)
-        # Apply output processing
-        recon_all = self.infer_aug_stack.process_losses(
-            recon_all, batch, self.log, "valid"
-        )
-        # Aggregate the heldout cost for logging
+        recon_all = [
+            recon.compute_loss(rd, op)
+            for recon, rd, op in zip(self.recon, recon_data, output_params)
+        ]
+        # Apply losses processing
+        recon_all = [
+            self.infer_aug_stack.process_losses(ra, sess_b, self.log, "valid")
+            for ra, sess_b in zip(recon_all, batch)
+        ]
+        # Aggregate the reconstruction cost
         if not hps.recon_reduce_mean:
-            recon_all = torch.sum(recon_all, dim=(1, 2))
-        recon = torch.mean(recon_all)
+            recon_all = [torch.sum(ra, dim=(1, 2)) for ra in recon_all]
+        recon = torch.mean(torch.stack([ra.mean() for ra in recon_all]))
+        # Update the smoothed reconstruction loss
         self.valid_recon_smth.update(recon)
         # Compute the L2 penalty on recurrent weights
         l2 = compute_l2_penalty(self, self.hparams)
@@ -239,7 +271,12 @@ class LFADS(pl.LightningModule):
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
-        r2 = r2_score(self.recon.compute_means(output_params), truth)
+        output_means = [
+            recon.compute_means(op) for recon, op in zip(self.recon, output_params)
+        ]
+        r2 = torch.mean(
+            torch.stack([r2_score(om, t) for om, t in zip(output_means, truth)])
+        )
         # Log all of the metrics
         metrics = {
             "valid/loss": loss,
@@ -260,13 +297,16 @@ class LFADS(pl.LightningModule):
         return loss
 
     def predict_step(self, batch, batch_ix, sample_posteriors=True):
-        # Apply input processing and unpack the batch
-        batch = self.infer_aug_stack.process_batch(batch)
-        encod_data, ext_input = batch[0], batch[3]
+        # Process the batch for each session
+        batch = [self.infer_aug_stack.process_batch(sess_b) for sess_b in batch]
+        # Reset to clear any saved masks
+        self.infer_aug_stack.reset()
+        # Unpack the batch
+        encod_data, _, ext_input, *_ = transpose_lists(batch)
         # Perform the forward pass
         return self.forward(
             encod_data,
-            ext_input,
+            torch.cat(ext_input),
             sample_posteriors=sample_posteriors,
             output_means=True,
         )

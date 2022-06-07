@@ -133,24 +133,23 @@ class ZeroInflatedGamma(nn.Module, Reconstruction):
         nz_ctr_data = torch.where(
             data == 0, torch.ones_like(data), data - self.gamma_loc
         )
-        # TODO: Fix problem where NaNs are corrupting gradients
         gamma = torch.distributions.Gamma(alphas, betas)
         recon_gamma = -gamma.log_prob(nz_ctr_data)
         # Replace with zero-inflated likelihoods
         recon_all = torch.where(
             data == 0, -torch.log(1 - qs), recon_gamma - torch.log(qs)
         )
-        # Tack an L2 penalty onto the gamma parameter scaling
-        l2 = torch.sum((self.scale - self.scale_prior) ** 2)
-        l2_penalty = 0.5 * self.scale_penalty * l2
-        # NOTE: Add this here for convenience - may not play nice if using recon sums.
-        # Also, makes recon loss impure.
-        return recon_all + l2_penalty
+        return recon_all
 
     def compute_means(self, output_params):
         # Compute the means of the ZIG distribution
         alphas, betas, qs = self._compute_scaled_params(output_params)
         return qs * (alphas / betas + self.gamma_loc)
+
+    def compute_l2(self):
+        # Compute an L2 scaling penalty on the gamma parameter scaling
+        l2 = torch.sum((self.scale - self.scale_prior) ** 2)
+        return 0.5 * self.scale_penalty * l2
 
     def _compute_scaled_params(self, output_params):
         # Compute sigmoid and clamp to avoid zero-valued rates

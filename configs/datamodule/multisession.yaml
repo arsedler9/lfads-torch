@@ -1,0 +1,14 @@
+_target_: lfads_torch.datamodules.base.BasicDataModule
+# TODO: Switch to a more realistic multi-session set
+data_paths:
+  - /snel/home/arsedle/tmp_radical_data/7Hz/lfads_input_data.h5
+  - /snel/home/arsedle/tmp_radical_data/10Hz/lfads_input_data.h5
+  - /snel/home/arsedle/tmp_radical_data/13Hz/lfads_input_data.h5
+  - /snel/home/arsedle/tmp_radical_data/15Hz/lfads_input_data.h5
+  - /snel/home/arsedle/tmp_radical_data/20Hz/lfads_input_data.h5
+batch_size: 256
+num_workers: 0
+sv_rate: 0.0
+sv_seed: 0
+# Name with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
+dm_ic_enc_seq_len: ${model.ic_enc_seq_len}

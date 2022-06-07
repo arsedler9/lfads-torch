@@ -1,7 +1,9 @@
 # Must have `nlb_lightning` installed
 from nlb_lightning.datamodules import NLBDataModule
+from pytorch_lightning.trainer.supporters import CombinedLoader
+from torch.utils.data import DataLoader
 
-from .base import add_auxiliary_data
+from .base import attach_tensors
 
 
 class LFADSNLBDataModule(NLBDataModule):
@@ -56,5 +58,45 @@ class LFADSNLBDataModule(NLBDataModule):
     def setup(self, stage=None):
         # Load the data tuples as defined in nlb_lightning
         super().setup(stage=stage)
+        train_encod_data, train_recon_data, train_behavior = self.train_data
+        # TODO: Update this it can handle test phase
+        valid_encod_data, valid_recon_data, valid_behavior = self.valid_data
+        data_dicts = [
+            {
+                "train_encod_data": train_encod_data.numpy(),
+                "train_recon_data": train_recon_data.numpy(),
+                "train_behavior": train_behavior.numpy(),
+                "valid_encod_data": valid_encod_data.numpy(),
+                "valid_recon_data": valid_recon_data.numpy(),
+                "valid_behavior": valid_behavior.numpy(),
+            }
+        ]
         # Add auxiliary data for LFADS
-        add_auxiliary_data(self)
+        attach_tensors(self, data_dicts, extra_keys=["behavior"])
+
+    def train_dataloader(self, shuffle=True):
+        # PTL provides all batches at once, so divide amongst dataloaders
+        batch_size = int(self.hparams.batch_size / len(self.train_ds))
+        dataloaders = [
+            DataLoader(
+                ds,
+                batch_size=batch_size,
+                num_workers=self.hparams.num_workers,
+                shuffle=shuffle,
+            )
+            for ds in self.train_ds
+        ]
+        return CombinedLoader(dataloaders, mode="max_size_cycle")
+
+    def val_dataloader(self):
+        # PTL provides all batches at once, so divide amongst dataloaders
+        batch_size = int(self.hparams.batch_size / len(self.train_ds))
+        dataloaders = [
+            DataLoader(
+                ds,
+                batch_size=batch_size,
+                num_workers=self.hparams.num_workers,
+            )
+            for ds in self.valid_ds
+        ]
+        return CombinedLoader(dataloaders, mode="max_size_cycle")

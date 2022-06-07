@@ -56,3 +56,8 @@ def get_batch_fwd():
     from `hydra` configs.
     """
     return batch_fwd
+
+
+def transpose_lists(output: list[list]):
+    """Transposes the ordering of a list of lists."""
+    return list(map(list, zip(*output)))
