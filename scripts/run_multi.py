@@ -39,7 +39,7 @@ tune.run(
     name=RUN_DIR.name,
     config=dict(
         model=dict(
-            dropout_rate=tune.uniform(0.0, 0.7),
+            dropout_rate=tune.uniform(0.0, 0.15),
             l2_ic_enc_scale=tune.loguniform(1e-5, 1e-3),
             l2_ci_enc_scale=tune.loguniform(1e-5, 1e-3),
             l2_gen_scale=tune.loguniform(1e-5, 1e0),

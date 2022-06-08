@@ -1,9 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pytorch_lightning as pl
-import torch
 
-from .utils import transpose_lists
+from .tuples import SessionBatch
 
 plt.switch_backend("Agg")
 
@@ -66,32 +65,36 @@ class RasterPlot(pl.Callback):
         # Get data samples from the dataloaders
         dataloader = trainer.datamodule.val_dataloader()
         batch = next(iter(dataloader))
-        encod_data, recon_data, ext_input, truth, *_ = transpose_lists(batch)
+        # Determine which sessions are in the batch
+        sessions = sorted(batch.keys())
+        # Move data to the right device
+        batch = {
+            s: SessionBatch(*[t.to(pl_module.device) for t in b])
+            for s, b in batch.items()
+        }
         # Compute model output
-        device_batch = [[t.to(pl_module.device) for t in sess_b] for sess_b in batch]
-        means, *_, inputs, _ = pl_module.predict_step(
-            batch=device_batch,
+        output = pl_module.predict_step(
+            batch=batch,
             batch_ix=None,
             sample_posteriors=False,
         )
-        split_ixs = [len(ed) for ed in encod_data]
-        inputs = torch.split(inputs, split_ixs)
-        ezip = enumerate(zip(encod_data, recon_data, truth, means, inputs))
-        for sess, (ed, rd, t, m, i) in ezip:
+        # Log a few example outputs for each session
+        for s in sessions:
             # Convert everything to numpy
-            rd = rd.detach().cpu().numpy()
-            t = t.detach().cpu().numpy()
-            m = m.detach().cpu().numpy()
-            i = i.detach().cpu().numpy()
+            encod_data = batch[s].encod_data.detach().cpu().numpy()
+            recon_data = batch[s].recon_data.detach().cpu().numpy()
+            truth = batch[s].truth.detach().cpu().numpy()
+            means = output[s].output_params.detach().cpu().numpy()
+            inputs = output[s].gen_inputs.detach().cpu().numpy()
             # Compute data sizes
-            _, steps_encod, neur_encod = ed.shape
-            _, steps_recon, neur_recon = rd.shape
+            _, steps_encod, neur_encod = encod_data.shape
+            _, steps_recon, neur_recon = recon_data.shape
             # Decide on how to plot panels
-            if np.all(np.isnan(t)):
-                plot_arrays = [rd, m, i]
+            if np.all(np.isnan(truth)):
+                plot_arrays = [recon_data, means, inputs]
                 height_ratios = [3, 3, 1]
             else:
-                plot_arrays = [rd, t, m, i]
+                plot_arrays = [recon_data, truth, means, inputs]
                 height_ratios = [3, 3, 3, 1]
             # Create subplots
             fig, axes = plt.subplots(
@@ -114,4 +117,4 @@ class RasterPlot(pl.Callback):
                         ax.plot(array[i])
             plt.tight_layout()
             # Log the plot to tensorboard
-            writer.add_figure(f"raster_plot/sess{sess}", fig, trainer.global_step)
+            writer.add_figure(f"raster_plot/sess{s}", fig, trainer.global_step)

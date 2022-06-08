@@ -1,8 +1,11 @@
+from typing import Iterable
+
 import pytorch_lightning as pl
 import torch
 from torch import nn
 
 from ..metrics import ExpSmoothedMetric, r2_score
+from ..tuples import SessionBatch, SessionOutput
 from ..utils import transpose_lists
 from .modules import augmentations
 from .modules.decoder import Decoder
@@ -85,13 +88,20 @@ class LFADS(pl.LightningModule):
         self.train_aug_stack = train_aug_stack
         self.infer_aug_stack = infer_aug_stack
 
-    def forward(self, data, ext_input, sample_posteriors=False, output_means=True):
-        # Use list of tensors to allow efficient computation on data of different sizes
-        assert type(data) == list and len(data) == len(self.readin)
-        # Keep track of sizes so we can split the data
-        split_ixs = [len(d) for d in data]
+    def forward(
+        self,
+        batch: dict[SessionBatch],
+        sample_posteriors: bool = False,
+        output_means: bool = True,
+    ) -> dict[SessionOutput]:
+        # Determine which sessions are in the batch
+        sessions = sorted(batch.keys())
+        # Keep track of batch sizes so we can split back up
+        batch_sizes = [len(batch[s].encod_data) for s in sessions]
         # Pass the data through the readin networks
-        encod_data = torch.cat([readin(d) for readin, d in zip(self.readin, data)])
+        encod_data = torch.cat([self.readin[s](batch[s].encod_data) for s in sessions])
+        # Collect the external inputs
+        ext_input = torch.cat([batch[s].ext_input for s in sessions])
         # Pass the data through the encoders
         ic_mean, ic_std, ci = self.encoder(encod_data)
         # Create the posterior distribution over initial conditions
@@ -109,31 +119,36 @@ class LFADS(pl.LightningModule):
             factors,
         ) = self.decoder(ic_samp, ci, ext_input, sample_posteriors=sample_posteriors)
         # Convert the factors representation into output distribution parameters
-        facs_split = torch.split(factors, split_ixs)
-        output_params = [readout(f) for readout, f in zip(self.readout, facs_split)]
+        factors = torch.split(factors, batch_sizes)
+        output_params = [self.readout[s](f) for s, f in zip(sessions, factors)]
         # Separate parameters of the output distribution
         output_params = [
-            recon.reshape_output_params(op)
-            for recon, op in zip(self.recon, output_params)
+            self.recon[s].reshape_output_params(op)
+            for s, op in zip(sessions, output_params)
         ]
         # Convert the output parameters to means if requested
         if output_means:
             output_params = [
-                recon.compute_means(op) for recon, op in zip(self.recon, output_params)
+                self.recon[s].compute_means(op)
+                for s, op in zip(sessions, output_params)
             ]
-        # Return the parameter estimates and all intermediate activations
-        return (
-            output_params,
-            factors,
-            ic_mean,
-            ic_std,
-            co_means,
-            co_stds,
-            gen_states,
-            gen_init,
-            gen_inputs,
-            con_states,
+        # Separate model outputs by session
+        output = transpose_lists(
+            [
+                output_params,
+                factors,
+                torch.split(ic_mean, batch_sizes),
+                torch.split(ic_std, batch_sizes),
+                torch.split(co_means, batch_sizes),
+                torch.split(co_stds, batch_sizes),
+                torch.split(gen_states, batch_sizes),
+                torch.split(gen_init, batch_sizes),
+                torch.split(gen_inputs, batch_sizes),
+                torch.split(con_states, batch_sizes),
+            ]
         )
+        # Return the parameter estimates and all intermediate activations
+        return {s: SessionOutput(*o) for s, o in zip(sessions, output)}
 
     def configure_optimizers(self):
         hps = self.hparams
@@ -159,28 +174,25 @@ class LFADS(pl.LightningModule):
         else:
             return optimizer
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: dict[Iterable], batch_idx):
         hps = self.hparams
+        # Determine which sessions are in the batch
+        sessions = sorted(batch.keys())
         # Process the batch for each session
-        batch = [self.train_aug_stack.process_batch(sess_b) for sess_b in batch]
-        # Unpack the batch
-        encod_data, recon_data, ext_input, truth, *_ = transpose_lists(batch)
+        batch = {s: self.train_aug_stack.process_batch(b) for s, b in batch.items()}
+        # Convert to SessionBatches for more readable access
+        batch = {s: SessionBatch(*b) for s, b in batch.items()}
         # Perform the forward pass
-        output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
-            encod_data,
-            torch.cat(ext_input),
-            sample_posteriors=True,
-            output_means=False,
-        )
+        output = self.forward(batch, sample_posteriors=True, output_means=False)
         # Compute the reconstruction loss
         recon_all = [
-            recon.compute_loss(rd, op)
-            for recon, rd, op in zip(self.recon, recon_data, output_params)
+            self.recon[s].compute_loss(batch[s].recon_data, output[s].output_params)
+            for s in sessions
         ]
         # Apply losses processing
         recon_all = [
-            self.train_aug_stack.process_losses(ra, sess_b, self.log, "train")
-            for ra, sess_b in zip(recon_all, batch)
+            self.train_aug_stack.process_losses(ra, batch[s], self.log, "train")
+            for ra, s in zip(recon_all, sessions)
         ]
         # Aggregate the heldout cost for logging
         if not hps.recon_reduce_mean:
@@ -193,6 +205,11 @@ class LFADS(pl.LightningModule):
         l2_ramp = (self.current_epoch - hps.l2_start_epoch) / (
             hps.l2_increase_epoch + 1
         )
+        # Collect posterior parameters for fast KL calculation
+        ic_mean = torch.cat([output[s].ic_mean for s in sessions])
+        ic_std = torch.cat([output[s].ic_std for s in sessions])
+        co_means = torch.cat([output[s].co_means for s in sessions])
+        co_stds = torch.cat([output[s].co_stds for s in sessions])
         # Compute the KL penalty on posteriors
         ic_kl = self.ic_prior(ic_mean, ic_std) * self.hparams.kl_ic_scale
         co_kl = self.co_prior(co_means, co_stds) * self.hparams.kl_co_scale
@@ -206,18 +223,20 @@ class LFADS(pl.LightningModule):
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
         output_means = [
-            recon.compute_means(op) for recon, op in zip(self.recon, output_params)
+            self.recon[s].compute_means(output[s].output_params) for s in sessions
         ]
         r2 = torch.mean(
-            torch.stack([r2_score(om, t) for om, t in zip(output_means, truth)])
+            torch.stack(
+                [r2_score(om, batch[s].truth) for om, s in zip(output_means, sessions)]
+            )
         )
         # Compute batch sizes for logging
-        batch_sizes = [len(d) for d in encod_data]
+        batch_sizes = [len(batch[s].encod_data) for s in sessions]
         # Log per-session metrics
-        for i, (value, batch_size) in enumerate(zip(sess_recon, batch_sizes)):
+        for s, recon_value, batch_size in zip(sessions, sess_recon, batch_sizes):
             self.log(
-                name=f"train/recon/sess{i}",
-                value=value,
+                name=f"train/recon/sess{s}",
+                value=recon_value,
                 on_step=False,
                 on_epoch=True,
                 batch_size=batch_size,
@@ -242,28 +261,25 @@ class LFADS(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch: dict[Iterable], batch_idx):
         hps = self.hparams
+        # Determine which sessions are in the batch
+        sessions = sorted(batch.keys())
         # Process the batch for each session
-        batch = [self.infer_aug_stack.process_batch(sess_b) for sess_b in batch]
-        # Unpack the batch
-        encod_data, recon_data, ext_input, truth, *_ = transpose_lists(batch)
+        batch = {s: self.infer_aug_stack.process_batch(b) for s, b in batch.items()}
+        # Convert to SessionBatches for more readable access (TODO: Move to dataloader?)
+        batch = {s: SessionBatch(*b) for s, b in batch.items()}
         # Perform the forward pass
-        output_params, _, ic_mean, ic_std, co_means, co_stds, *_ = self.forward(
-            encod_data,
-            torch.cat(ext_input),
-            sample_posteriors=True,
-            output_means=False,
-        )
+        output = self.forward(batch, sample_posteriors=True, output_means=False)
         # Compute the reconstruction loss
         recon_all = [
-            recon.compute_loss(rd, op)
-            for recon, rd, op in zip(self.recon, recon_data, output_params)
+            self.recon[s].compute_loss(batch[s].recon_data, output[s].output_params)
+            for s in sessions
         ]
         # Apply losses processing
         recon_all = [
-            self.infer_aug_stack.process_losses(ra, sess_b, self.log, "valid")
-            for ra, sess_b in zip(recon_all, batch)
+            self.infer_aug_stack.process_losses(ra, batch[s], self.log, "valid")
+            for ra, s in zip(recon_all, sessions)
         ]
         # Aggregate the reconstruction cost
         if not hps.recon_reduce_mean:
@@ -278,6 +294,11 @@ class LFADS(pl.LightningModule):
         l2_ramp = (self.current_epoch - hps.l2_start_epoch) / (
             hps.l2_increase_epoch + 1
         )
+        # Collect posterior parameters for fast KL calculation
+        ic_mean = torch.cat([output[s].ic_mean for s in sessions])
+        ic_std = torch.cat([output[s].ic_std for s in sessions])
+        co_means = torch.cat([output[s].co_means for s in sessions])
+        co_stds = torch.cat([output[s].co_stds for s in sessions])
         # Compute the KL penalty on posteriors
         ic_kl = self.ic_prior(ic_mean, ic_std) * self.hparams.kl_ic_scale
         co_kl = self.co_prior(co_means, co_stds) * self.hparams.kl_co_scale
@@ -291,18 +312,19 @@ class LFADS(pl.LightningModule):
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
         output_means = [
-            recon.compute_means(op) for recon, op in zip(self.recon, output_params)
+            self.recon[s].compute_means(output[s].output_params) for s in sessions
         ]
         r2 = torch.mean(
-            torch.stack([r2_score(om, t) for om, t in zip(output_means, truth)])
+            torch.stack(
+                [r2_score(om, batch[s].truth) for om, s in zip(output_means, sessions)]
+            )
         )
-        # Compute batch sizes for logging
-        batch_sizes = [len(d) for d in encod_data]
         # Log per-session metrics
-        for i, (value, batch_size) in enumerate(zip(sess_recon, batch_sizes)):
+        batch_sizes = [len(batch[s].encod_data) for s in sessions]
+        for s, recon_value, batch_size in zip(sessions, sess_recon, batch_sizes):
             self.log(
-                name=f"valid/recon/sess{i}",
-                value=value,
+                name=f"valid/recon/sess{s}",
+                value=recon_value,
                 on_step=False,
                 on_epoch=True,
                 batch_size=batch_size,
@@ -330,17 +352,16 @@ class LFADS(pl.LightningModule):
 
         return loss
 
-    def predict_step(self, batch, batch_ix, sample_posteriors=True):
+    def predict_step(self, batch: dict[Iterable], batch_ix, sample_posteriors=True):
         # Process the batch for each session
-        batch = [self.infer_aug_stack.process_batch(sess_b) for sess_b in batch]
+        batch = {s: self.infer_aug_stack.process_batch(b) for s, b in batch.items()}
         # Reset to clear any saved masks
         self.infer_aug_stack.reset()
-        # Unpack the batch
-        encod_data, _, ext_input, *_ = transpose_lists(batch)
+        # Convert to SessionBatches for more readable access
+        batch = {s: SessionBatch(*b) for s, b in batch.items()}
         # Perform the forward pass
         return self.forward(
-            encod_data,
-            torch.cat(ext_input),
+            batch=batch,
             sample_posteriors=sample_posteriors,
             output_means=True,
         )

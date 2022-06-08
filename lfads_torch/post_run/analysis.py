@@ -1,8 +1,12 @@
 import logging
+from pathlib import Path
 
 import h5py
 import torch
 from tqdm import tqdm
+
+from ..tuples import SessionOutput
+from ..utils import transpose_lists
 
 logger = logging.getLogger(__name__)
 
@@ -22,21 +26,20 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
     num_samples : int, optional
         The number of forward passes to average, by default 50
     """
-    # Batch the data
+    # Convert filename to pathlib.Path for convenience
+    filename = Path(filename)
+    # Set up the dataloaders
     datamodule.setup()
-    train_dl = datamodule.train_dataloader(shuffle=False)
-    valid_dl = datamodule.val_dataloader()
+    pred_dls = datamodule.predict_dataloader()
 
-    def transpose_list(output):
-        # Transpose a list of lists
-        return list(map(list, zip(*output)))
-
-    def run_ps_batch(batch):
+    # Function to run posterior sampling for a single session at a time
+    def run_ps_batch(s, batch):
         # Move the batch to the model device
-        batch = [t.to(model.device) for t in batch]
+        batch = {s: [t.to(model.device) for t in batch]}
         # Repeatedly compute the model outputs for this batch
         for i in range(num_samples):
-            output = model.predict_step(batch, None, sample_posteriors=True)
+            # Separate means because they could have different dimensionality
+            output = model.predict_step(batch, None, sample_posteriors=True)[s]
             # Use running sum to save memory while averaging
             if i == 0:
                 # Detach output from the graph to save memory on gradients
@@ -46,32 +49,22 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
         # Finish averaging by dividing by the total number of samples
         return [s / num_samples for s in sums]
 
-    # Repeatedly get model output for the complete dataset
-    logger.info("Running posterior sampling on train data.")
-    train_ps = [run_ps_batch(batch) for batch in tqdm(train_dl)]
-    logger.info("Running posterior sampling on valid data.")
-    valid_ps = [run_ps_batch(batch) for batch in tqdm(valid_dl)]
-    # Average across the samples
-    train_pm = [torch.cat(o).cpu().numpy() for o in transpose_list(train_ps)]
-    valid_pm = [torch.cat(o).cpu().numpy() for o in transpose_list(valid_ps)]
-    # Save the averages to the output file
-    with h5py.File(filename, mode="w") as h5file:
-        for prefix, pm in zip(["train_", "valid_"], [train_pm, valid_pm]):
-            for name, data in zip(
-                [
-                    "output_params",
-                    "factors",
-                    "ic_mean",
-                    "ic_std",
-                    "co_means",
-                    "co_stds",
-                    "gen_states",
-                    "gen_init",
-                    "gen_inputs",
-                    "con_states",
-                ],
-                pm,
-            ):
-                h5file.create_dataset(prefix + name, data=data)
-    # Log message about sucessful completion
-    logger.info(f"Posterior averages successfully saved to `{filename}`")
+    # Compute outputs for one session at a time
+    for s, dataloaders in pred_dls.items():
+        # Give each session a unique file path
+        sess_fname = f"{filename.stem}_sess{s}{filename.suffix}"
+        for split in ["train", "valid"]:
+            # Compute average model outputs for each session and then recombine batches
+            logger.info(f"Running posterior sampling on Session {s} {split} data.")
+            post_means = [run_ps_batch(s, batch) for batch in tqdm(dataloaders[split])]
+            post_means = SessionOutput(
+                *[torch.cat(o).cpu().numpy() for o in transpose_lists(post_means)]
+            )
+            # Save the averages to the output file
+            with h5py.File(sess_fname, mode="w") as h5file:
+                for name in SessionOutput._fields:
+                    h5file.create_dataset(
+                        f"{split}_{name}", data=getattr(post_means, name)
+                    )
+        # Log message about sucessful completion
+        logger.info(f"Session {s} posterior means successfully saved to `{sess_fname}`")
