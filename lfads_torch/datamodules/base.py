@@ -2,8 +2,11 @@ import h5py
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.trainer.supporters import CombinedLoader
+from torch import Tensor
 from torch.distributions import Bernoulli
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, Dataset
+
+from ..tuples import SessionBatch
 
 MANDATORY_DATA_DICT_KEYS = [
     "train_encod_data",
@@ -61,31 +64,55 @@ def attach_tensors(datamodule, data_dicts: list[dict], extra_keys: list[str] = [
         valid_other = [to_tensor(data_dict[f"valid_{k}"]) for k in extra_keys]
         # Store the data for this session
         all_train_data.append(
-            [
-                train_encod_data,
-                train_recon_data,
-                train_ext,
-                train_truth,
-                train_sv_mask,
-                *train_other,
-            ]
+            (
+                SessionBatch(
+                    train_encod_data,
+                    train_recon_data,
+                    train_ext,
+                    train_truth,
+                    train_sv_mask,
+                ),
+                tuple(train_other),
+            )
         )
         all_valid_data.append(
-            [
-                valid_encod_data,
-                valid_recon_data,
-                valid_ext,
-                valid_truth,
-                valid_sv_mask,
-                *valid_other,
-            ]
+            (
+                SessionBatch(
+                    valid_encod_data,
+                    valid_recon_data,
+                    valid_ext,
+                    valid_truth,
+                    valid_sv_mask,
+                ),
+                tuple(valid_other),
+            )
         )
     # Stack all of the data across sessions
     datamodule.train_data = all_train_data
     datamodule.valid_data = all_valid_data
     # Create a TensorDataset for each session
-    datamodule.train_ds = [TensorDataset(*train_data) for train_data in all_train_data]
-    datamodule.valid_ds = [TensorDataset(*valid_data) for valid_data in all_valid_data]
+    datamodule.train_ds = [SessionDataset(*train_data) for train_data in all_train_data]
+    datamodule.valid_ds = [SessionDataset(*valid_data) for valid_data in all_valid_data]
+
+
+class SessionDataset(Dataset):
+    def __init__(
+        self, model_tensors: SessionBatch[Tensor], extra_tensors: tuple[Tensor]
+    ):
+        all_tensors = [*model_tensors, *extra_tensors]
+        assert all(
+            all_tensors[0].size(0) == tensor.size(0) for tensor in all_tensors
+        ), "Size mismatch between tensors"
+        self.model_tensors = model_tensors
+        self.extra_tensors = extra_tensors
+
+    def __getitem__(self, index):
+        model_tensors = SessionBatch(*[t[index] for t in self.model_tensors])
+        extra_tensors = tuple(t[index] for t in self.extra_tensors)
+        return model_tensors, extra_tensors
+
+    def __len__(self):
+        return len(self.model_tensors[0])
 
 
 class BasicDataModule(pl.LightningDataModule):

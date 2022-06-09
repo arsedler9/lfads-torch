@@ -2,6 +2,8 @@ import torch
 import torch.nn.functional as F
 from torch.distributions import Bernoulli
 
+from ...tuples import SessionBatch
+
 
 def pad_mask(mask, data, value):
     """Adds padding to I/O masks for CD and SV in cases where
@@ -25,7 +27,7 @@ class AugmentationStack:
     def process_batch(self, batch):
         for transform in self.batch_transforms:
             batch = transform.process_batch(batch)
-        return batch
+        return SessionBatch(*batch)
 
     def process_losses(self, losses, batch, log_fn, data_split):
         for transform in self.loss_transforms:

@@ -7,14 +7,10 @@ raster_plot:
   n_samples: 3
   log_every_n_epochs: 20
 
-trajectory_plot_callback:
-  _target_: nlb_lightning.callbacks.TrajectoryPlotCallback
-  batch_fwd:
-    _target_: lfads_torch.utils.get_batch_fwd
+trajectory_plot:
+  _target_: lfads_torch.callbacks.TrajectoryPlot
   log_every_n_epochs: 5
 
 evaluation_callback:
-  _target_: nlb_lightning.callbacks.EvaluationCallback
-  batch_fwd:
-    _target_: lfads_torch.utils.get_batch_fwd
+  _target_: lfads_torch.callbacks.NLBEvaluation
   log_every_n_epochs: 5

@@ -77,26 +77,49 @@ class LFADSNLBDataModule(NLBDataModule):
     def train_dataloader(self, shuffle=True):
         # PTL provides all batches at once, so divide amongst dataloaders
         batch_size = int(self.hparams.batch_size / len(self.train_ds))
-        dataloaders = [
-            DataLoader(
+        dataloaders = {
+            i: DataLoader(
                 ds,
                 batch_size=batch_size,
                 num_workers=self.hparams.num_workers,
                 shuffle=shuffle,
             )
-            for ds in self.train_ds
-        ]
+            for i, ds in enumerate(self.train_ds)
+        }
         return CombinedLoader(dataloaders, mode="max_size_cycle")
 
     def val_dataloader(self):
         # PTL provides all batches at once, so divide amongst dataloaders
         batch_size = int(self.hparams.batch_size / len(self.train_ds))
-        dataloaders = [
-            DataLoader(
+        dataloaders = {
+            i: DataLoader(
                 ds,
                 batch_size=batch_size,
                 num_workers=self.hparams.num_workers,
             )
-            for ds in self.valid_ds
-        ]
+            for i, ds in enumerate(self.valid_ds)
+        }
         return CombinedLoader(dataloaders, mode="max_size_cycle")
+
+    def predict_dataloader(self):
+        # NOTE: Returning dicts of DataLoaders is incompatible with trainer.predict,
+        # but convenient for posterior sampling. Can't use CombinedLoader here because
+        # we only want to see each sample once.
+        dataloaders = {
+            s: {
+                "train": DataLoader(
+                    self.train_ds[s],
+                    batch_size=self.hparams.batch_size,
+                    num_workers=self.hparams.num_workers,
+                    shuffle=False,
+                ),
+                "valid": DataLoader(
+                    self.valid_ds[s],
+                    batch_size=self.hparams.batch_size,
+                    num_workers=self.hparams.num_workers,
+                    shuffle=False,
+                ),
+            }
+            for s in range(len(self.train_ds))
+        }
+        return dataloaders

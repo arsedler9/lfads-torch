@@ -1,3 +1,8 @@
+import torch
+
+from .tuples import SessionBatch
+
+
 def flatten(dictionary, level=[]):
     """Flattens a dictionary by placing '.' between levels.
     This function flattens a hierarchical dictionary by placing '.'
@@ -28,36 +33,27 @@ def flatten(dictionary, level=[]):
     return tmp_dict
 
 
-def batch_fwd(model, batch, sample_posteriors=False):
-    """Performs the forward pass for a given data batch.
-
-    Parameters
-    ----------
-    model : lfads_torch.models.base_model.LFADS
-        The model to pass data through.
-    batch : tuple[torch.Tensor]
-        A tuple of batched input tensors.
-
-    Returns
-    -------
-    tuple[torch.Tensor]
-        A tuple of batched output tensors.
-    """
-    input_data, ext = batch[0], batch[3]
-    return model(
-        input_data.to(model.device),
-        ext.to(model.device),
-        sample_posteriors=sample_posteriors,
-    )
-
-
-def get_batch_fwd():
-    """Utility function for accessing the `batch_fwd` function
-    from `hydra` configs.
-    """
-    return batch_fwd
-
-
 def transpose_lists(output: list[list]):
     """Transposes the ordering of a list of lists."""
     return list(map(list, zip(*output)))
+
+
+def send_batch_to_device(batch, device):
+    """Recursively searches the batch for tensors and sends them to the device"""
+
+    def send_to_device(obj):
+        obj_type = type(obj)
+        if obj_type == torch.Tensor:
+            return obj.to(device)
+        elif obj_type == dict:
+            return {k: send_to_device(v) for k, v in obj.items()}
+        elif obj_type == list:
+            return [send_to_device(o) for o in obj]
+        elif obj_type == SessionBatch:
+            return SessionBatch(*[send_to_device(o) for o in obj])
+        else:
+            raise NotImplementedError(
+                f"`send_batch_to_device` has not been implemented for {str(obj_type)}."
+            )
+
+    return send_to_device(batch)

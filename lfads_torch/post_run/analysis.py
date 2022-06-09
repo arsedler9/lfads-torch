@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 
 from ..tuples import SessionOutput
-from ..utils import transpose_lists
+from ..utils import send_batch_to_device, transpose_lists
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +35,10 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
     # Function to run posterior sampling for a single session at a time
     def run_ps_batch(s, batch):
         # Move the batch to the model device
-        batch = {s: [t.to(model.device) for t in batch]}
+        batch = send_batch_to_device({s: batch}, model.device)
         # Repeatedly compute the model outputs for this batch
         for i in range(num_samples):
-            # Separate means because they could have different dimensionality
+            # Perform the forward pass through the model
             output = model.predict_step(batch, None, sample_posteriors=True)[s]
             # Use running sum to save memory while averaging
             if i == 0:

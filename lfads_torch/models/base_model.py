@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Union
 
 import pytorch_lightning as pl
 import torch
@@ -94,6 +94,9 @@ class LFADS(pl.LightningModule):
         sample_posteriors: bool = False,
         output_means: bool = True,
     ) -> dict[SessionOutput]:
+        # Allow SessionBatch input
+        if type(batch) == SessionBatch and len(self.readin) == 1:
+            batch = {0: batch}
         # Determine which sessions are in the batch
         sessions = sorted(batch.keys())
         # Keep track of batch sizes so we can split back up
@@ -178,10 +181,10 @@ class LFADS(pl.LightningModule):
         hps = self.hparams
         # Determine which sessions are in the batch
         sessions = sorted(batch.keys())
-        # Process the batch for each session
-        batch = {s: self.train_aug_stack.process_batch(b) for s, b in batch.items()}
-        # Convert to SessionBatches for more readable access
-        batch = {s: SessionBatch(*b) for s, b in batch.items()}
+        # Discard the extra data - only the SessionBatches are relevant here
+        batch = {s: b[0] for s, b in batch.items()}
+        # Process the batch for each session (in order so aug stack can keep track)
+        batch = {s: self.train_aug_stack.process_batch(batch[s]) for s in sessions}
         # Perform the forward pass
         output = self.forward(batch, sample_posteriors=True, output_means=False)
         # Compute the reconstruction loss
@@ -261,14 +264,16 @@ class LFADS(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch: dict[Iterable], batch_idx):
+    def validation_step(
+        self, batch: dict[Iterable[Union[SessionBatch, tuple]]], batch_idx
+    ):
         hps = self.hparams
         # Determine which sessions are in the batch
         sessions = sorted(batch.keys())
-        # Process the batch for each session
-        batch = {s: self.infer_aug_stack.process_batch(b) for s, b in batch.items()}
-        # Convert to SessionBatches for more readable access (TODO: Move to dataloader?)
-        batch = {s: SessionBatch(*b) for s, b in batch.items()}
+        # Discard the extra data - only the SessionBatches are relevant here
+        batch = {s: b[0] for s, b in batch.items()}
+        # Process the batch for each session (in order so aug stack can keep track)
+        batch = {s: self.infer_aug_stack.process_batch(batch[s]) for s in sessions}
         # Perform the forward pass
         output = self.forward(batch, sample_posteriors=True, output_means=False)
         # Compute the reconstruction loss
@@ -352,13 +357,13 @@ class LFADS(pl.LightningModule):
 
         return loss
 
-    def predict_step(self, batch: dict[Iterable], batch_ix, sample_posteriors=True):
+    def predict_step(self, batch, batch_ix, sample_posteriors=True):
+        # Discard the extra data - only the SessionBatches are relevant here
+        batch = {s: b[0] for s, b in batch.items()}
         # Process the batch for each session
         batch = {s: self.infer_aug_stack.process_batch(b) for s, b in batch.items()}
         # Reset to clear any saved masks
         self.infer_aug_stack.reset()
-        # Convert to SessionBatches for more readable access
-        batch = {s: SessionBatch(*b) for s, b in batch.items()}
         # Perform the forward pass
         return self.forward(
             batch=batch,
