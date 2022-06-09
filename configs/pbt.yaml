@@ -1,10 +1,7 @@
 defaults:
-  - model: nlb_mc_rtt
-  - datamodule: nlb_mc_rtt
+  - model: nlb_mc_maze
+  - datamodule: nlb_mc_maze
   - callbacks: nlb
-  # enable color logging
-  - override hydra/hydra_logging: colorlog
-  - override hydra/job_logging: colorlog
   - _self_
 
 seed: 0
@@ -49,7 +46,7 @@ logger:
     # Configure logger so PTL and ray use the same TB file.
     save_dir:
       _target_: ray.tune.get_trial_dir
-    version: "."
+    version: ""
     name: ""
 
 posterior_sampling:

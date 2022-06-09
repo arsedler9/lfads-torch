@@ -1,11 +1,8 @@
 defaults:
-  - model: nlb_mc_rtt
-  - datamodule: nlb_mc_rtt
+  - model: nlb_mc_maze
+  - datamodule: nlb_mc_maze
   - callbacks: nlb
   - logger: default
-  # enable color logging
-  - override hydra/hydra_logging: colorlog
-  - override hydra/job_logging: colorlog
   - _self_
 
 seed: 0

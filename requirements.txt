@@ -3,12 +3,9 @@ torchmetrics==0.7.2
 pytorch-lightning==1.6.0
 hydra-core
 h5py
-wandb
 pre-commit
 black
 isort
 flake8
-rich
-hydra-colorlog
-ray[tune]==1.12.0rc1
+ray[tune]==1.13.0
 matplotlib

@@ -59,6 +59,9 @@ def run_model(
             logger=[instantiate(lg) for lg in config.logger.values()],
             gpus=int(torch.cuda.is_available()),
         )
+        # Temporary workaround for PTL step-resuming bug
+        if checkpoint_dir:
+            trainer.fit_loop.epoch_loop._batches_that_stepped = ckpt["global_step"]
         # Train the model
         trainer.fit(
             model=model,
