@@ -308,7 +308,6 @@ class LFADS(pl.LightningModule):
                 "hp/l2_con_scale": self.hparams.l2_con_scale,
                 "hp/kl_co_scale": self.hparams.kl_co_scale,
                 "hp/kl_ic_scale": self.hparams.kl_ic_scale,
-                "hp/weight_decay": self.hparams.weight_decay,
             }
         )
         # Log CD rate if CD is being used
