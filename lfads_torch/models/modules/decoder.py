@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .initializers import init_variance_scaling_
+from .initializers import init_linear_
 from .recurrent import ClippedGRUCell
 
 
@@ -22,6 +22,7 @@ class DecoderCell(nn.Module):
         )
         # Create the mapping from generator states to factors
         self.fac_linear = KernelNormalizedLinear(hps.gen_dim, hps.fac_dim, bias=False)
+        init_linear_(self.fac_linear)
         # Create the dropout layer
         self.dropout = nn.Dropout(hps.dropout_rate)
         # Decide whether to use the controller
@@ -39,7 +40,7 @@ class DecoderCell(nn.Module):
             )
             # Define the mapping from controller state to controller output parameters
             self.co_linear = nn.Linear(hps.con_dim, hps.co_dim * 2)
-            init_variance_scaling_(self.co_linear.weight, hps.con_dim)
+            init_linear_(self.co_linear)
         # Keep track of the state dimensions
         self.state_dims = [
             hps.gen_dim,
@@ -115,7 +116,7 @@ class Decoder(nn.Module):
         self.dropout = nn.Dropout(hps.dropout_rate)
         # Create the mapping from ICs to gen_state
         self.ic_to_g0 = nn.Linear(hps.ic_dim, hps.gen_dim)
-        init_variance_scaling_(self.ic_to_g0.weight, hps.ic_dim)
+        init_linear_(self.ic_to_g0)
         # Create the decoder RNN
         self.rnn = DecoderRNN(hparams=hparams)
         # Initial hidden state for controller

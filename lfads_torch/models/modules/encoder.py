@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .initializers import init_variance_scaling_
+from .initializers import init_linear_
 from .recurrent import BidirectionalClippedGRU
 
 
@@ -23,7 +23,7 @@ class Encoder(nn.Module):
         )
         # Mapping from final IC encoder state to IC parameters
         self.ic_linear = nn.Linear(hps.ic_enc_dim * 2, hps.ic_dim * 2)
-        init_variance_scaling_(self.ic_linear.weight, hps.ic_enc_dim * 2)
+        init_linear_(self.ic_linear)
         # Decide whether to use the controller
         self.use_con = all(
             [
