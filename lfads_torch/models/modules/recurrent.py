@@ -18,7 +18,18 @@ class ClippedGRUCell(nn.GRUCell):
         init_gru_cell_(self, scale_dim=scale_dim)
 
     def forward(self, input: torch.Tensor, hidden: torch.Tensor):
-        hidden = super().forward(input, hidden)
+        x_all = input @ self.weight_ih.T + self.bias_ih
+        x_z, x_r, x_n = torch.chunk(x_all, chunks=3, dim=1)
+        split_dims = [2 * self.hidden_size, self.hidden_size]
+        weight_hh_zr, weight_hh_n = torch.split(self.weight_hh, split_dims)
+        bias_hh_zr, bias_hh_n = torch.split(self.bias_hh, split_dims)
+        h_all = hidden @ weight_hh_zr.T + bias_hh_zr
+        h_z, h_r = torch.chunk(h_all, chunks=2, dim=1)
+        z = torch.sigmoid(x_z + h_z)
+        r = torch.sigmoid(x_r + h_r)
+        h_n = (r * hidden) @ weight_hh_n.T + bias_hh_n
+        n = torch.tanh(x_n + h_n)
+        hidden = z * hidden + (1 - z) * n
         hidden = torch.clamp(hidden, -self.clip_value, self.clip_value)
         return hidden
 

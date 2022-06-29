@@ -8,7 +8,7 @@ from .recurrent import ClippedGRUCell
 
 class KernelNormalizedLinear(nn.Linear):
     def forward(self, input):
-        normed_weight = F.normalize(self.weight, p=2, dim=0)
+        normed_weight = F.normalize(self.weight, p=2, dim=1)
         return F.linear(input, normed_weight, self.bias)
 
 
@@ -69,8 +69,8 @@ class DecoderCell(nn.Module):
             con_state = self.con_cell(con_input_drop, con_state)
             # Compute the distribution of the controller outputs at this timestep
             co_params = self.co_linear(con_state)
-            co_mean, co_logstd = torch.split(co_params, hps.co_dim, dim=1)
-            co_std = torch.exp(co_logstd)
+            co_mean, co_logvar = torch.split(co_params, hps.co_dim, dim=1)
+            co_std = torch.sqrt(torch.exp(co_logvar))
             # Sample from the distribution of controller outputs
             co_post = self.hparams.co_prior.make_posterior(co_mean, co_std)
             con_output = co_post.rsample() if sample_posteriors else co_mean
@@ -143,7 +143,7 @@ class Decoder(nn.Module):
                 gen_init,
                 torch.tile(self.con_h0, (batch_size, 1)),
                 torch.zeros((batch_size, hps.co_dim), device=device),
-                torch.zeros((batch_size, hps.co_dim), device=device),
+                torch.ones((batch_size, hps.co_dim), device=device),
                 torch.zeros(
                     (batch_size, hps.co_dim + hps.ext_input_dim), device=device
                 ),

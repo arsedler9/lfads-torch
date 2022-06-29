@@ -65,8 +65,8 @@ class Encoder(nn.Module):
         # Compute initial condition posterior
         h_n_drop = self.dropout(h_n)
         ic_params = self.ic_linear(h_n_drop)
-        ic_mean, ic_logstd = torch.split(ic_params, hps.ic_dim, dim=1)
-        ic_std = torch.exp(ic_logstd) + torch.sqrt(torch.tensor(hps.ic_post_var_min))
+        ic_mean, ic_logvar = torch.split(ic_params, hps.ic_dim, dim=1)
+        ic_std = torch.sqrt(torch.exp(ic_logvar) + hps.ic_post_var_min)
         if hps.ci_enc_dim > 0:
             # Pass data through CI encoder
             ci, _ = self.ci_enc(ci_enc_data, self.ci_enc_h0)

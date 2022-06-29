@@ -1,5 +1,3 @@
-from typing import Iterable, Union
-
 import pytorch_lightning as pl
 import torch
 from torch import nn
@@ -177,14 +175,17 @@ class LFADS(pl.LightningModule):
         else:
             return optimizer
 
-    def training_step(self, batch: dict[Iterable], batch_idx):
+    def _shared_step(self, batch, batch_idx, split):
         hps = self.hparams
+        # Check that the split argument is valid
+        assert split in ["train", "valid"]
         # Determine which sessions are in the batch
         sessions = sorted(batch.keys())
         # Discard the extra data - only the SessionBatches are relevant here
         batch = {s: b[0] for s, b in batch.items()}
         # Process the batch for each session (in order so aug stack can keep track)
-        batch = {s: self.train_aug_stack.process_batch(batch[s]) for s in sessions}
+        aug_stack = self.train_aug_stack if split == "train" else self.infer_aug_stack
+        batch = {s: aug_stack.process_batch(batch[s]) for s in sessions}
         # Perform the forward pass
         output = self.forward(batch, sample_posteriors=True, output_means=False)
         # Compute the reconstruction loss
@@ -194,7 +195,7 @@ class LFADS(pl.LightningModule):
         ]
         # Apply losses processing
         recon_all = [
-            self.train_aug_stack.process_losses(ra, batch[s], self.log, "train")
+            aug_stack.process_losses(ra, batch[s], self.log, split)
             for ra, s in zip(recon_all, sessions)
         ]
         # Aggregate the heldout cost for logging
@@ -238,25 +239,38 @@ class LFADS(pl.LightningModule):
         # Log per-session metrics
         for s, recon_value, batch_size in zip(sessions, sess_recon, batch_sizes):
             self.log(
-                name=f"train/recon/sess{s}",
+                name=f"{split}/recon/sess{s}",
                 value=recon_value,
                 on_step=False,
                 on_epoch=True,
                 batch_size=batch_size,
             )
+        # Collect metrics for logging
+        metrics = {
+            f"{split}/loss": loss,
+            f"{split}/recon": recon,
+            f"{split}/r2": r2,
+            f"{split}/wt_l2": l2,
+            f"{split}/wt_l2/ramp": l2_ramp,
+            f"{split}/wt_kl": ic_kl + co_kl,
+            f"{split}/wt_kl/ic": ic_kl,
+            f"{split}/wt_kl/co": co_kl,
+            f"{split}/wt_kl/ramp": kl_ramp,
+        }
+        if split == "valid":
+            # Update the smoothed reconstruction loss
+            self.valid_recon_smth.update(recon)
+            # Add validation-only metrics
+            metrics.update(
+                {
+                    "valid/recon_smth": self.valid_recon_smth,
+                    "hp_metric": recon,
+                    "cur_epoch": float(self.current_epoch),
+                }
+            )
         # Log overall metrics
         self.log_dict(
-            {
-                "train/loss": loss,
-                "train/recon": recon,
-                "train/r2": r2,
-                "train/wt_l2": l2,
-                "train/wt_l2/ramp": l2_ramp,
-                "train/wt_kl": ic_kl + co_kl,
-                "train/wt_kl/ic": ic_kl,
-                "train/wt_kl/co": co_kl,
-                "train/wt_kl/ramp": kl_ramp,
-            },
+            metrics,
             on_step=False,
             on_epoch=True,
             batch_size=sum(batch_sizes),
@@ -264,98 +278,11 @@ class LFADS(pl.LightningModule):
 
         return loss
 
-    def validation_step(
-        self, batch: dict[Iterable[Union[SessionBatch, tuple]]], batch_idx
-    ):
-        hps = self.hparams
-        # Determine which sessions are in the batch
-        sessions = sorted(batch.keys())
-        # Discard the extra data - only the SessionBatches are relevant here
-        batch = {s: b[0] for s, b in batch.items()}
-        # Process the batch for each session (in order so aug stack can keep track)
-        batch = {s: self.infer_aug_stack.process_batch(batch[s]) for s in sessions}
-        # Perform the forward pass
-        output = self.forward(batch, sample_posteriors=True, output_means=False)
-        # Compute the reconstruction loss
-        recon_all = [
-            self.recon[s].compute_loss(batch[s].recon_data, output[s].output_params)
-            for s in sessions
-        ]
-        # Apply losses processing
-        recon_all = [
-            self.infer_aug_stack.process_losses(ra, batch[s], self.log, "valid")
-            for ra, s in zip(recon_all, sessions)
-        ]
-        # Aggregate the reconstruction cost
-        if not hps.recon_reduce_mean:
-            recon_all = [torch.sum(ra, dim=(1, 2)) for ra in recon_all]
-        # Compute reconstruction loss for each session
-        sess_recon = [ra.mean() for ra in recon_all]
-        recon = torch.mean(torch.stack(sess_recon))
-        # Update the smoothed reconstruction loss
-        self.valid_recon_smth.update(recon)
-        # Compute the L2 penalty on recurrent weights
-        l2 = compute_l2_penalty(self, self.hparams)
-        l2_ramp = (self.current_epoch - hps.l2_start_epoch) / (
-            hps.l2_increase_epoch + 1
-        )
-        # Collect posterior parameters for fast KL calculation
-        ic_mean = torch.cat([output[s].ic_mean for s in sessions])
-        ic_std = torch.cat([output[s].ic_std for s in sessions])
-        co_means = torch.cat([output[s].co_means for s in sessions])
-        co_stds = torch.cat([output[s].co_stds for s in sessions])
-        # Compute the KL penalty on posteriors
-        ic_kl = self.ic_prior(ic_mean, ic_std) * self.hparams.kl_ic_scale
-        co_kl = self.co_prior(co_means, co_stds) * self.hparams.kl_co_scale
-        kl_ramp = (self.current_epoch - hps.kl_start_epoch) / (
-            hps.kl_increase_epoch + 1
-        )
-        # Clamp the ramps
-        l2_ramp = torch.clamp(torch.tensor(l2_ramp), 0, 1)
-        kl_ramp = torch.clamp(torch.tensor(kl_ramp), 0, 1)
-        # Compute the final loss
-        loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
-        # Compute the reconstruction accuracy, if applicable
-        output_means = [
-            self.recon[s].compute_means(output[s].output_params) for s in sessions
-        ]
-        r2 = torch.mean(
-            torch.stack(
-                [r2_score(om, batch[s].truth) for om, s in zip(output_means, sessions)]
-            )
-        )
-        # Log per-session metrics
-        batch_sizes = [len(batch[s].encod_data) for s in sessions]
-        for s, recon_value, batch_size in zip(sessions, sess_recon, batch_sizes):
-            self.log(
-                name=f"valid/recon/sess{s}",
-                value=recon_value,
-                on_step=False,
-                on_epoch=True,
-                batch_size=batch_size,
-            )
-        # Log overall metrics
-        self.log_dict(
-            {
-                "valid/loss": loss,
-                "valid/recon": recon,
-                "valid/recon_smth": self.valid_recon_smth,
-                "valid/r2": r2,
-                "valid/wt_l2": l2,
-                "valid/wt_l2/ramp": l2_ramp,
-                "valid/wt_kl": ic_kl + co_kl,
-                "valid/wt_kl/ic": ic_kl,
-                "valid/wt_kl/co": co_kl,
-                "valid/wt_kl/ramp": kl_ramp,
-                "hp_metric": recon,
-                "cur_epoch": float(self.current_epoch),
-            },
-            on_step=False,
-            on_epoch=True,
-            batch_size=sum(batch_sizes),
-        )
+    def training_step(self, batch, batch_idx):
+        return self._shared_step(batch, batch_idx, "train")
 
-        return loss
+    def validation_step(self, batch, batch_idx):
+        return self._shared_step(batch, batch_idx, "valid")
 
     def predict_step(self, batch, batch_ix, sample_posteriors=True):
         # Discard the extra data - only the SessionBatches are relevant here
@@ -370,3 +297,21 @@ class LFADS(pl.LightningModule):
             sample_posteriors=sample_posteriors,
             output_means=True,
         )
+
+    def on_validation_epoch_end(self):
+        # Log hyperparameters that may change during PBT
+        self.log_dict(
+            {
+                "hp/lr_init": self.hparams.lr_init,
+                "hp/dropout_rate": self.hparams.dropout_rate,
+                "hp/l2_gen_scale": self.hparams.l2_gen_scale,
+                "hp/l2_con_scale": self.hparams.l2_con_scale,
+                "hp/kl_co_scale": self.hparams.kl_co_scale,
+                "hp/kl_ic_scale": self.hparams.kl_ic_scale,
+                "hp/weight_decay": self.hparams.weight_decay,
+            }
+        )
+        # Log CD rate if CD is being used
+        for aug in self.train_aug_stack.batch_transforms:
+            if hasattr(aug, "cd_rate"):
+                self.log("hp/cd_rate", aug.cd_rate)
