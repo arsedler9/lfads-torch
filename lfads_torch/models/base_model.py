@@ -154,7 +154,11 @@ class LFADS(pl.LightningModule):
     def configure_optimizers(self):
         hps = self.hparams
         # Create an optimizer
-        optimizer = torch.optim.Adam(self.parameters(), lr=hps.lr_init)
+        optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=hps.lr_init,
+            eps=hps.lr_adam_epsilon,
+        )
         if hps.lr_scheduler:
             # Create a scheduler to reduce the learning rate over time
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -164,7 +168,6 @@ class LFADS(pl.LightningModule):
                 patience=hps.lr_patience,
                 threshold=0.0,
                 min_lr=hps.lr_stop,
-                eps=hps.lr_adam_epsilon,
                 verbose=True,
             )
             return {

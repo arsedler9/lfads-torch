@@ -46,7 +46,7 @@ class RasterPlot(pl.Callback):
     inferred inputs and rates and logs to tensorboard.
     """
 
-    def __init__(self, n_samples=2, log_every_n_epochs=20):
+    def __init__(self, split="valid", n_samples=2, log_every_n_epochs=20):
         """Initializes the callback.
         Parameters
         ----------
@@ -55,6 +55,8 @@ class RasterPlot(pl.Callback):
         log_every_n_epochs : int, optional
             The frequency with which to plot and log, by default 20
         """
+        assert split in ["train", "valid"]
+        self.split = split
         self.n_samples = n_samples
         self.log_every_n_epochs = log_every_n_epochs
 
@@ -74,7 +76,10 @@ class RasterPlot(pl.Callback):
         if writer is None:
             return
         # Get data samples from the dataloaders
-        dataloader = trainer.datamodule.val_dataloader()
+        if self.split == "valid":
+            dataloader = trainer.datamodule.val_dataloader()
+        else:
+            dataloader = trainer.datamodule.train_dataloader(shuffle=False)
         batch = next(iter(dataloader))
         # Determine which sessions are in the batch
         sessions = sorted(batch.keys())
@@ -127,7 +132,9 @@ class RasterPlot(pl.Callback):
                         ax.plot(array[i])
             plt.tight_layout()
             # Log the plot to tensorboard
-            writer.add_figure(f"raster_plot/sess{s}", fig, trainer.global_step)
+            writer.add_figure(
+                f"{self.split}/raster_plot/sess{s}", fig, trainer.global_step
+            )
 
 
 class TrajectoryPlot(pl.Callback):

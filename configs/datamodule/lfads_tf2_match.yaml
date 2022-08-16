@@ -1,0 +1,9 @@
+_target_: lfads_torch.datamodules.base.BasicDataModule
+data_paths:
+  - /snel/share/data/lfads_lorenz_20ms/lfads_dataset001.h5
+batch_size: 500
+num_workers: 0
+sv_rate: 0.0
+sv_seed: 0
+# Name with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
+dm_ic_enc_seq_len: ${model.ic_enc_seq_len}

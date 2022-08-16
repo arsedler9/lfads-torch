@@ -1,4 +1,5 @@
 import logging
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -51,15 +52,15 @@ analysis = tune.run(
     #     patience=100,
     # ),
     config=dict(
-        model=dict(
-            lr_init=tune.choice([1e-2]),
-            cd_rate=tune.choice([0.5]),
-            dropout_rate=tune.uniform(0.0, 0.6),
-            l2_gen_scale=tune.loguniform(1e-4, 1e0),
-            l2_con_scale=tune.loguniform(1e-4, 1e0),
-            kl_co_scale=tune.loguniform(1e-6, 1e-4),
-            kl_ic_scale=tune.loguniform(1e-5, 1e-3),
-        ),
+        model={
+            "lr_init": tune.choice([4e-3]),
+            "train_aug_stack.transforms.0.cd_rate": tune.choice([0.5]),
+            "dropout_rate": tune.uniform(0.0, 0.6),
+            "l2_gen_scale": tune.loguniform(1e-4, 1e0),
+            "l2_con_scale": tune.loguniform(1e-4, 1e0),
+            "kl_co_scale": tune.loguniform(1e-6, 1e-4),
+            "kl_ic_scale": tune.loguniform(1e-5, 1e-3),
+        },
     ),
     resources_per_trial=dict(cpu=3, gpu=0.5),
     num_samples=20,
@@ -67,18 +68,18 @@ analysis = tune.run(
     search_alg=BasicVariantGenerator(random_state=0),
     scheduler=PopulationBasedTraining(
         time_attr="cur_epoch",
-        perturbation_interval=70,  # 50
-        # burn_in_period=150,
+        perturbation_interval=25,
+        burn_in_period=100,
         hyperparam_mutations=dict(
-            model=dict(
-                lr_init=tune.loguniform(1e-5, 5e-3),
-                cd_rate=tune.uniform(0.01, 0.7),
-                dropout_rate=tune.uniform(0.0, 0.6),
-                l2_gen_scale=tune.loguniform(1e-4, 1e0),
-                l2_con_scale=tune.loguniform(1e-4, 1e0),
-                kl_co_scale=tune.loguniform(1e-6, 1e-4),
-                kl_ic_scale=tune.loguniform(1e-5, 1e-3),
-            ),
+            model={
+                "lr_init": tune.loguniform(1e-5, 5e-3),
+                "train_aug_stack.transforms.0.cd_rate": tune.uniform(0.01, 0.7),
+                "dropout_rate": tune.uniform(0.0, 0.7),
+                "l2_gen_scale": tune.loguniform(1e-4, 1e0),
+                "l2_con_scale": tune.loguniform(1e-4, 1e0),
+                "kl_co_scale": tune.loguniform(1e-6, 1e-4),
+                "kl_ic_scale": tune.loguniform(1e-5, 1e-3),
+            },
         ),
         quantile_fraction=0.25,
         resample_probability=0.25,
@@ -94,14 +95,16 @@ analysis = tune.run(
         sort_by_metric=True,
     ),
     trial_dirname_creator=lambda trial: str(trial),
-    reuse_actors=True,
 )
-# Load the best model and run posterior sampling (skip training)
+# Copy the best model to a new folder so it is easy to identify
 best_model_dir = RUN_DIR / "best_model"
 shutil.copytree(analysis.best_logdir, best_model_dir)
+# Switch working directory to this folder (usually handled by tune)
+os.chdir(best_model_dir)
+# Load the best model and run posterior sampling (skip training)
+best_ckpt_dir = best_model_dir / Path(analysis.best_checkpoint.local_path).name
 run_model(
-    # TODO: Update to use `ray.tune` checkpoints (analysis.best_checkpoint)
-    checkpoint_dir=best_model_dir / "ptl_ckpts",
+    checkpoint_dir=best_ckpt_dir,
     config_path=CONFIG_PATH,
     do_train=False,
 )

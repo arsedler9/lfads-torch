@@ -4,7 +4,8 @@ defaults:
   - callbacks: nlb
   - _self_
 
-seed: 0
+# Use unique initializations for better diversity
+seed: null
 ignore_warnings: True
 
 trainer:

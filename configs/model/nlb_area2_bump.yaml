@@ -64,7 +64,7 @@ lr_init: 1.0e-2
 lr_stop: 1.0e-5
 lr_decay: 0.95
 lr_patience: 6
-lr_adam_epsilon: 1.0e-8
+lr_adam_epsilon: 1.0e-7
 lr_scheduler: True
 
 # --------- regularization --------- #
