@@ -47,7 +47,7 @@ class AutoregressiveMultivariateNormal(nn.Module):
         self.lognvars = nn.Parameter(lognvars, requires_grad=True)
 
     def make_posterior(self, post_mean, post_std):
-        return Independent(Normal(post_mean, post_std), 1)
+        return Independent(Normal(post_mean, post_std), 2)
 
     def log_prob(self, sample):
         # Compute alpha and process variance
@@ -63,7 +63,7 @@ class AutoregressiveMultivariateNormal(nn.Module):
         means[:, 0] = 0.0
         stddevs[:, 0] = torch.exp(0.5 * logpvars)
         # Create the prior and compute the log-probability
-        prior = Independent(Normal(means, stddevs), 1)
+        prior = Independent(Normal(means, stddevs), 2)
         return prior.log_prob(sample)
 
     def forward(self, post_mean, post_std):
