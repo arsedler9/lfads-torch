@@ -60,7 +60,7 @@ loss_scale: 1.0e+4
 recon_reduce_mean: True
 
 # --------- learning rate --------- #
-lr_init: 1.0e-2
+lr_init: 4.0e-3
 lr_stop: 1.0e-5
 lr_decay: 0.95
 lr_patience: 6
