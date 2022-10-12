@@ -19,7 +19,7 @@ class MultivariateNormal(nn.Module):
         self.logvar = nn.Parameter(logvars, requires_grad=False)
 
     def make_posterior(self, post_mean, post_std):
-        return Independent(Normal(post_mean, post_std), post_mean.ndim - 1)
+        return Independent(Normal(post_mean, post_std), 1)
 
     def forward(self, post_mean, post_std):
         # Create the posterior distribution
@@ -47,7 +47,7 @@ class AutoregressiveMultivariateNormal(nn.Module):
         self.lognvars = nn.Parameter(lognvars, requires_grad=True)
 
     def make_posterior(self, post_mean, post_std):
-        return Independent(Normal(post_mean, post_std), 2)
+        return Independent(Normal(post_mean, post_std), 1)
 
     def log_prob(self, sample):
         # Compute alpha and process variance
@@ -63,7 +63,7 @@ class AutoregressiveMultivariateNormal(nn.Module):
         means[:, 0] = 0.0
         stddevs[:, 0] = torch.exp(0.5 * logpvars)
         # Create the prior and compute the log-probability
-        prior = Independent(Normal(means, stddevs), 2)
+        prior = Independent(Normal(means, stddevs), 1)
         return prior.log_prob(sample)
 
     def forward(self, post_mean, post_std):
@@ -92,6 +92,7 @@ class MultivariateStudentT(nn.Module):
         self.df = df
 
     def make_posterior(self, post_loc, post_scale):
+        # TODO: Should probably be inferring degrees of freedom along with loc and scale
         return Independent(StudentT(self.df, post_loc, post_scale), 1)
 
     def forward(self, post_loc, post_scale):
