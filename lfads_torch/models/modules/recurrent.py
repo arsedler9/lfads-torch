@@ -13,6 +13,7 @@ class ClippedGRUCell(nn.GRUCell):
         is_encoder: bool = False,
     ):
         super().__init__(input_size, hidden_size, bias=True)
+        self.bias_hh.requires_grad = False
         self.clip_value = clip_value
         scale_dim = input_size + hidden_size if is_encoder else None
         init_gru_cell_(self, scale_dim=scale_dim)

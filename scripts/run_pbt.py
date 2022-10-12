@@ -32,7 +32,7 @@ if LOCAL_MODE:
 # Overwrite the directory if necessary
 if RUN_DIR.exists() and OVERWRITE:
     shutil.rmtree(RUN_DIR)
-RUN_DIR.mkdir()
+RUN_DIR.mkdir(parents=True)
 # Copy this script into the run directory
 shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 # Run the hyperparameter search

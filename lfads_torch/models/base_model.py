@@ -209,7 +209,7 @@ class LFADS(pl.LightningModule):
         recon = torch.mean(torch.stack(sess_recon))
         # Compute the L2 penalty on recurrent weights
         l2 = compute_l2_penalty(self, self.hparams)
-        l2_ramp = (self.current_epoch - hps.l2_start_epoch) / (
+        l2_ramp = (self.current_epoch + 1 - hps.l2_start_epoch) / (
             hps.l2_increase_epoch + 1
         )
         # Collect posterior parameters for fast KL calculation
@@ -220,7 +220,7 @@ class LFADS(pl.LightningModule):
         # Compute the KL penalty on posteriors
         ic_kl = self.ic_prior(ic_mean, ic_std) * self.hparams.kl_ic_scale
         co_kl = self.co_prior(co_means, co_stds) * self.hparams.kl_co_scale
-        kl_ramp = (self.current_epoch - hps.kl_start_epoch) / (
+        kl_ramp = (self.current_epoch + 1 - hps.kl_start_epoch) / (
             hps.kl_increase_epoch + 1
         )
         # Clamp the ramps

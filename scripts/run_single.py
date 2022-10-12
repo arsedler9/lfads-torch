@@ -19,7 +19,7 @@ CONFIG_PATH = Path("../configs/single.yaml")
 # Overwrite the directory if necessary
 if RUN_DIR.exists() and OVERWRITE:
     shutil.rmtree(RUN_DIR)
-RUN_DIR.mkdir()
+RUN_DIR.mkdir(parents=True)
 # Switch to the `RUN_DIR` and train the model
 os.chdir(RUN_DIR)
 run_model(config_path=CONFIG_PATH)
