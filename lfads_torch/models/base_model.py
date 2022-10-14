@@ -45,6 +45,7 @@ class LFADS(pl.LightningModule):
         lr_decay: float,
         lr_patience: int,
         lr_adam_epsilon: float,
+        weight_decay: float,
         l2_start_epoch: int,
         l2_increase_epoch: int,
         l2_ic_enc_scale: float,
@@ -158,6 +159,7 @@ class LFADS(pl.LightningModule):
             self.parameters(),
             lr=hps.lr_init,
             eps=hps.lr_adam_epsilon,
+            weight_decay=hps.weight_decay,
         )
         if hps.lr_scheduler:
             # Create a scheduler to reduce the learning rate over time

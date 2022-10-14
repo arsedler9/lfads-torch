@@ -1,3 +1,4 @@
+import io
 import warnings
 
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ from nlb_tools.evaluation import (
     speed_tp_correlation,
     velocity_decoding,
 )
+from PIL import Image
 from scipy.linalg import LinAlgWarning
 from sklearn.decomposition import PCA
 
@@ -18,27 +20,49 @@ from .utils import send_batch_to_device
 plt.switch_backend("Agg")
 
 
-def get_tensorboard_summary_writer(loggers):
-    """Gets the TensorBoard SummaryWriter from a logger
-    or logger collection to allow writing of images.
+def has_image_loggers(loggers):
+    """Checks whether any image loggers are available.
 
     Parameters
     ----------
     loggers : obj or list[obj]
-        An object or list of loggers to search for the
-        SummaryWriter.
-
-    Returns
-    -------
-    torch.utils.tensorboard.writer.SummaryWriter
-        The SummaryWriter object.
+        An object or list of loggers to search.
     """
     logger_list = loggers if isinstance(loggers, list) else [loggers]
     for logger in logger_list:
-        if isinstance(logger, pl.loggers.tensorboard.TensorBoardLogger):
-            return logger.experiment
-    else:
-        return None
+        if isinstance(logger, pl.loggers.TensorBoardLogger):
+            return True
+        elif isinstance(logger, pl.loggers.WandbLogger):
+            return True
+    return False
+
+
+def log_figure(loggers, name, fig, step):
+    """Logs a figure image to all available image loggers.
+
+    Parameters
+    ----------
+    loggers : obj or list[obj]
+        An object or list of loggers
+    name : str
+        The name to use for the logged figure
+    fig : matplotlib.figure.Figure
+        The figure to log
+    step : int
+        The step to associate with the logged figure
+    """
+    # Save figure image to in-memory buffer
+    img_buf = io.BytesIO()
+    fig.savefig(img_buf, format="png")
+    image = Image.open(img_buf)
+    # Distribute image to all image loggers
+    logger_list = loggers if isinstance(loggers, list) else [loggers]
+    for logger in logger_list:
+        if isinstance(logger, pl.loggers.TensorBoardLogger):
+            logger.experiment.add_figure(name, fig, step)
+        elif isinstance(logger, pl.loggers.WandbLogger):
+            logger.log_image(name, [image], step)
+    img_buf.close()
 
 
 class RasterPlot(pl.Callback):
@@ -71,9 +95,8 @@ class RasterPlot(pl.Callback):
         """
         if (trainer.current_epoch % self.log_every_n_epochs) != 0:
             return
-        # Check for the TensorBoard SummaryWriter
-        writer = get_tensorboard_summary_writer(trainer.loggers)
-        if writer is None:
+        # Check for any image loggers
+        if not has_image_loggers(trainer.loggers):
             return
         # Get data samples from the dataloaders
         if self.split == "valid":
@@ -131,9 +154,12 @@ class RasterPlot(pl.Callback):
                     else:
                         ax.plot(array[i])
             plt.tight_layout()
-            # Log the plot to tensorboard
-            writer.add_figure(
-                f"{self.split}/raster_plot/sess{s}", fig, trainer.global_step
+            # Log the figure
+            log_figure(
+                trainer.loggers,
+                f"{self.split}/raster_plot/sess{s}",
+                fig,
+                trainer.global_step,
             )
 
 
@@ -165,9 +191,8 @@ class TrajectoryPlot(pl.Callback):
         # Skip evaluation for most epochs to save time
         if (trainer.current_epoch % self.log_every_n_epochs) != 0:
             return
-        # Check for the TensorBoard SummaryWriter
-        writer = get_tensorboard_summary_writer(trainer.loggers)
-        if writer is None:
+        # Check for any image loggers
+        if not has_image_loggers(trainer.loggers):
             return
         # Get only the validation dataloaders
         pred_dls = trainer.datamodule.predict_dataloader()
@@ -201,8 +226,13 @@ class TrajectoryPlot(pl.Callback):
             ax.scatter(*latents[:, -1, :].T, alpha=0.1, s=10, c="r")
             ax.set_title(f"explained variance: {explained_variance:.2f}")
             plt.tight_layout()
-            # Log the plot to tensorboard
-            writer.add_figure(f"trajectory_plot/sess{s}", fig, trainer.global_step)
+            # Log the figure
+            log_figure(
+                trainer.loggers,
+                f"trajectory_plot/sess{s}",
+                fig,
+                trainer.global_step,
+            )
 
 
 class NLBEvaluation(pl.Callback):

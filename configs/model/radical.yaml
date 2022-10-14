@@ -80,6 +80,7 @@ lr_adam_epsilon: 1.0e-7
 lr_scheduler: True
 
 # --------- regularization --------- #
+weight_decay: 0.0
 l2_start_epoch: 0
 l2_increase_epoch: 80
 l2_ic_enc_scale: 0.0
