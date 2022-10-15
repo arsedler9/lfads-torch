@@ -67,7 +67,7 @@ class Encoder(nn.Module):
         ic_params = self.ic_linear(h_n_drop)
         ic_mean, ic_logvar = torch.split(ic_params, hps.ic_dim, dim=1)
         ic_std = torch.sqrt(torch.exp(ic_logvar) + hps.ic_post_var_min)
-        if hps.ci_enc_dim > 0:
+        if self.use_con:
             # Pass data through CI encoder
             ci, _ = self.ci_enc(ci_enc_data, self.ci_enc_h0)
             # Add a lag to the controller input
@@ -76,11 +76,11 @@ class Encoder(nn.Module):
             ci_bwd = F.pad(ci_bwd, (0, 0, 0, hps.ci_lag, 0, 0))
             ci_len = hps.encod_seq_len - hps.ic_enc_seq_len
             ci = torch.cat([ci_fwd[:, :ci_len, :], ci_bwd[:, -ci_len:, :]], dim=2)
-        else:
-            ci = torch.zeros_like(ci_enc_data)[:, :, : 2 * hps.ci_enc_dim]
-        # Add extra zeros if necessary for forward prediction
-        fwd_steps = hps.recon_seq_len - hps.encod_seq_len
-        if fwd_steps > 0:
+            # Add extra zeros if necessary for forward prediction
+            fwd_steps = hps.recon_seq_len - hps.encod_seq_len
             ci = F.pad(ci, (0, 0, 0, fwd_steps, 0, 0))
+        else:
+            # Create a placeholder if there's no controller
+            ci = torch.zeros(data.shape[0], hps.recon_seq_len, 0).to(data.device)
 
         return ic_mean, ic_std, ci

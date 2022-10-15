@@ -79,8 +79,7 @@ class LFADS(pl.LightningModule):
         self.recon = reconstruction
         # Store the trainable priors
         self.ic_prior = ic_prior
-        if self.use_con:
-            self.co_prior = co_prior
+        self.co_prior = co_prior
         # Create metric for exponentially-smoothed `valid/recon`
         self.valid_recon_smth = ExpSmoothedMetric()
         # Store the data augmentation stacks

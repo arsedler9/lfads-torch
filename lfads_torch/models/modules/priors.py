@@ -4,6 +4,14 @@ from torch.distributions import Independent, Normal, StudentT, kl_divergence
 from torch.distributions.transforms import AffineTransform
 
 
+class Null(nn.Module):
+    def make_posterior(self, *args):
+        return None
+
+    def forward(self, *args):
+        return 0
+
+
 class MultivariateNormal(nn.Module):
     def __init__(
         self,
