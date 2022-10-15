@@ -41,6 +41,7 @@ infer_aug_stack:
 # --------- priors / posteriors --------- #
 reconstruction:
   - _target_: lfads_torch.models.modules.recons.Poisson
+variational: True
 co_prior:
   _target_: lfads_torch.models.modules.priors.MultivariateNormal
   mean: 0

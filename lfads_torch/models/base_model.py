@@ -9,6 +9,7 @@ from .modules import augmentations
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
 from .modules.l2 import compute_l2_penalty
+from .modules.priors import Null
 
 
 class LFADS(pl.LightningModule):
@@ -29,6 +30,7 @@ class LFADS(pl.LightningModule):
         fac_dim: int,
         dropout_rate: float,
         reconstruction: nn.ModuleList,
+        variational: bool,
         co_prior: nn.Module,
         ic_prior: nn.Module,
         ic_post_var_min: float,
@@ -65,6 +67,9 @@ class LFADS(pl.LightningModule):
         self.hparams.co_prior = co_prior
         # Make sure the nn.ModuleList arguments are all the same length
         assert len(readin) == len(readout) == len(reconstruction)
+        # Make sure that non-variational models use null priors
+        if not variational:
+            assert isinstance(ic_prior, Null) and isinstance(co_prior, Null)
 
         # Store the readin network
         self.readin = readin
@@ -191,7 +196,9 @@ class LFADS(pl.LightningModule):
         aug_stack = self.train_aug_stack if split == "train" else self.infer_aug_stack
         batch = {s: aug_stack.process_batch(batch[s]) for s in sessions}
         # Perform the forward pass
-        output = self.forward(batch, sample_posteriors=True, output_means=False)
+        output = self.forward(
+            batch, sample_posteriors=hps.variational, output_means=False
+        )
         # Compute the reconstruction loss
         recon_all = [
             self.recon[s].compute_loss(batch[s].recon_data, output[s].output_params)
@@ -298,7 +305,7 @@ class LFADS(pl.LightningModule):
         # Perform the forward pass
         return self.forward(
             batch=batch,
-            sample_posteriors=sample_posteriors,
+            sample_posteriors=self.hparams.variational and sample_posteriors,
             output_means=True,
         )
 

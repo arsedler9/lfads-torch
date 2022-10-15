@@ -73,6 +73,7 @@ reconstruction:
   - _target_: lfads_torch.models.modules.recons.Poisson
   - _target_: lfads_torch.models.modules.recons.Poisson
   - _target_: lfads_torch.models.modules.recons.Poisson
+variational: True
 co_prior:
   _target_: lfads_torch.models.modules.priors.AutoregressiveMultivariateNormal
   tau: 10.0

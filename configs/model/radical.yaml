@@ -53,6 +53,7 @@ reconstruction:
       scale_init: 20.0
       scale_prior: 20.0
       scale_penalty: 1.0e-4
+variational: True
 co_prior:
   _target_: lfads_torch.models.modules.priors.AutoregressiveMultivariateNormal
   tau: 10.0
