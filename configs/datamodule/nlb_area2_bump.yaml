@@ -2,7 +2,7 @@ _target_: lfads_torch.datamodules.nlb.LFADSNLBDataModule
 dataset_name: area2_bump
 phase: val
 bin_width: 5
-batch_size: 300 # full-dataset batches
+batch_size: 256
 num_workers: 0
 sv_rate: 0.0
 sv_seed: 0

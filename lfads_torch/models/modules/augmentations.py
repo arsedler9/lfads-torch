@@ -231,3 +231,11 @@ class SelectiveBackpropThruTime:
 
     def reset(self):
         self.isnan_masks = []
+
+
+class IgnoreNaNLoss:
+    def process_losses(self, recon_loss, *args):
+        isnan_mask = torch.isnan(recon_loss)
+        frac_isnan = isnan_mask.sum() / isnan_mask.numel()
+        recon_loss[isnan_mask] = 0
+        return recon_loss / (1 - frac_isnan)

@@ -37,6 +37,9 @@ train_aug_stack:
   loss_order: [0]
 infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
+  transforms:
+    - _target_: lfads_torch.models.modules.augmentations.IgnoreNaNLoss
+  loss_order: [0]
 
 # --------- priors / posteriors --------- #
 reconstruction:
