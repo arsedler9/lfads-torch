@@ -61,7 +61,7 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
                 *[torch.cat(o).cpu().numpy() for o in transpose_lists(post_means)]
             )
             # Save the averages to the output file
-            with h5py.File(sess_fname, mode="w") as h5file:
+            with h5py.File(sess_fname, mode="a") as h5file:
                 for name in SessionOutput._fields:
                     h5file.create_dataset(
                         f"{split}_{name}", data=getattr(post_means, name)
