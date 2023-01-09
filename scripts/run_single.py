@@ -22,4 +22,10 @@ if RUN_DIR.exists() and OVERWRITE:
 RUN_DIR.mkdir(parents=True)
 # Switch to the `RUN_DIR` and train the model
 os.chdir(RUN_DIR)
-run_model(config_path=CONFIG_PATH)
+run_model(
+    overrides={
+        "datamodule": "nlb_mc_maze",
+        "model": "nlb_mc_maze",
+    },
+    config_path=CONFIG_PATH,
+)

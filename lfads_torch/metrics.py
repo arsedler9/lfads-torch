@@ -16,7 +16,7 @@ def r2_score(preds, targets):
 class ExpSmoothedMetric(Metric):
     """Averages within epochs and exponentially smooths between epochs."""
 
-    def __init__(self, coef=0.7, **kwargs):
+    def __init__(self, coef=0.9, **kwargs):
         super().__init__(**kwargs)
         self.coef = coef
         # Automatically reset by torchmetrics after `compute` is called
@@ -33,6 +33,6 @@ class ExpSmoothedMetric(Metric):
         curr = self.value / self.count
         if torch.isnan(self.prev):
             self.prev = curr
-        smth = (1 - self.coef) * self.prev + self.coef * curr
+        smth = self.coef * self.prev + (1 - self.coef) * curr
         self.prev = smth
         return smth

@@ -5,17 +5,17 @@ learning_rate_monitor:
 valid_raster_plot:
   _target_: lfads_torch.callbacks.RasterPlot
   n_samples: 3
-  log_every_n_epochs: 20
+  log_every_n_epochs: 500
 
 train_raster_plot:
   _target_: lfads_torch.callbacks.RasterPlot
   split: train
   n_samples: 3
-  log_every_n_epochs: 20
+  log_every_n_epochs: 500
 
 trajectory_plot:
   _target_: lfads_torch.callbacks.TrajectoryPlot
-  log_every_n_epochs: 5
+  log_every_n_epochs: 500
 
 evaluation_callback:
   _target_: lfads_torch.callbacks.NLBEvaluation

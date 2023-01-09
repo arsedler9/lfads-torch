@@ -48,7 +48,7 @@ class ClippedGRU(nn.Module):
         )
 
     def forward(self, input: torch.Tensor, h_0: torch.Tensor):
-        hidden = torch.tile(h_0, (input.shape[0], 1))
+        hidden = h_0
         input = torch.transpose(input, 0, 1)
         output = []
         for input_step in input:

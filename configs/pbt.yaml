@@ -28,6 +28,7 @@ callbacks:
     _target_: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
     metrics:
       - valid/recon_smth
+      - nlb/co_bps_smth
       - cur_epoch
     filename: tune.ckpt
     "on": validation_end

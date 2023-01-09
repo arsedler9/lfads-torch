@@ -95,6 +95,17 @@ def attach_tensors(datamodule, data_dicts: list[dict], extra_keys: list[str] = [
     datamodule.valid_ds = [SessionDataset(*valid_data) for valid_data in all_valid_data]
 
 
+def reshuffle_train_valid(train_tensors, valid_tensors, seed):
+    n_train, n_valid = len(train_tensors[0]), len(valid_tensors[0])
+    tensors = [torch.cat([t, v]) for t, v in zip(train_tensors, valid_tensors)]
+    gen = torch.Generator().manual_seed(seed)
+    inds = torch.randperm(n_train + n_valid, generator=gen)
+    train_inds, valid_inds = torch.split(inds, [n_train, n_valid])
+    train_tensors = [t[train_inds] for t in tensors]
+    valid_tensors = [t[valid_inds] for t in tensors]
+    return train_tensors, valid_tensors
+
+
 class SessionDataset(Dataset):
     def __init__(
         self, model_tensors: SessionBatch[Tensor], extra_tensors: tuple[Tensor]

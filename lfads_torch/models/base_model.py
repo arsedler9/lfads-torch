@@ -159,7 +159,7 @@ class LFADS(pl.LightningModule):
     def configure_optimizers(self):
         hps = self.hparams
         # Create an optimizer
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=hps.lr_init,
             eps=hps.lr_adam_epsilon,
@@ -183,6 +183,17 @@ class LFADS(pl.LightningModule):
             }
         else:
             return optimizer
+
+    def _compute_ramp(self, start, increase):
+        # Compute a coefficient that ramps from 0 to 1 over `increase` epochs
+        ramp = (self.current_epoch + 1 - start) / (increase + 1)
+        return torch.clamp(torch.tensor(ramp), 0, 1)
+
+    def on_before_optimizer_step(self, optimizer, optimizer_idx):
+        hps = self.hparams
+        # Gradually ramp weight decay alongside the l2 parameters
+        l2_ramp = self._compute_ramp(hps.l2_start_epoch, hps.l2_increase_epoch)
+        optimizer.param_groups[0]["weight_decay"] = l2_ramp * hps.weight_decay
 
     def _shared_step(self, batch, batch_idx, split):
         hps = self.hparams
@@ -217,9 +228,6 @@ class LFADS(pl.LightningModule):
         recon = torch.mean(torch.stack(sess_recon))
         # Compute the L2 penalty on recurrent weights
         l2 = compute_l2_penalty(self, self.hparams)
-        l2_ramp = (self.current_epoch + 1 - hps.l2_start_epoch) / (
-            hps.l2_increase_epoch + 1
-        )
         # Collect posterior parameters for fast KL calculation
         ic_mean = torch.cat([output[s].ic_mean for s in sessions])
         ic_std = torch.cat([output[s].ic_std for s in sessions])
@@ -228,12 +236,9 @@ class LFADS(pl.LightningModule):
         # Compute the KL penalty on posteriors
         ic_kl = self.ic_prior(ic_mean, ic_std) * self.hparams.kl_ic_scale
         co_kl = self.co_prior(co_means, co_stds) * self.hparams.kl_co_scale
-        kl_ramp = (self.current_epoch + 1 - hps.kl_start_epoch) / (
-            hps.kl_increase_epoch + 1
-        )
-        # Clamp the ramps
-        l2_ramp = torch.clamp(torch.tensor(l2_ramp), 0, 1)
-        kl_ramp = torch.clamp(torch.tensor(kl_ramp), 0, 1)
+        # Compute ramping coefficients
+        l2_ramp = self._compute_ramp(hps.l2_start_epoch, hps.l2_increase_epoch)
+        kl_ramp = self._compute_ramp(hps.kl_start_epoch, hps.kl_increase_epoch)
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
@@ -315,6 +320,8 @@ class LFADS(pl.LightningModule):
             {
                 "hp/lr_init": self.hparams.lr_init,
                 "hp/dropout_rate": self.hparams.dropout_rate,
+                "hp/l2_ic_enc_scale": self.hparams.l2_ic_enc_scale,
+                "hp/l2_ci_enc_scale": self.hparams.l2_ci_enc_scale,
                 "hp/l2_gen_scale": self.hparams.l2_gen_scale,
                 "hp/l2_con_scale": self.hparams.l2_con_scale,
                 "hp/kl_co_scale": self.hparams.kl_co_scale,
