@@ -234,8 +234,33 @@ class SelectiveBackpropThruTime:
 
 
 class IgnoreNaNLoss:
+    def __init__(
+        self,
+        encod_data_dim: int,
+        encod_seq_len: int,
+        scale_by_quadrant: bool,
+    ):
+        self.encod_data_dim = encod_data_dim
+        self.encod_seq_len = encod_seq_len
+        self.scale_by_quadrant = scale_by_quadrant
+
     def process_losses(self, recon_loss, *args):
+        # Replace the missing data with zeros to enable averaging
         isnan_mask = torch.isnan(recon_loss)
-        frac_isnan = isnan_mask.sum() / isnan_mask.numel()
         recon_loss[isnan_mask] = 0
-        return recon_loss / (1 - frac_isnan)
+        esl, edd = self.encod_seq_len, self.encod_data_dim
+
+        # Compute batched probabilities that TxN masks are nonzero
+        def prob_nonzero(mask):
+            return mask.float().mean(dim=(1, 2), keepdim=True)
+
+        if self.scale_by_quadrant:
+            # Rescale each quadrant of each sample by its fraction of missing data
+            recon_loss[:, :esl, :edd] /= 1 - prob_nonzero(isnan_mask[:, :esl, :edd])
+            recon_loss[:, :esl, edd:] /= 1 - prob_nonzero(isnan_mask[:, :esl, edd:])
+            recon_loss[:, esl:, :edd] /= 1 - prob_nonzero(isnan_mask[:, esl:, :edd])
+            recon_loss[:, esl:, edd:] /= 1 - prob_nonzero(isnan_mask[:, esl:, edd:])
+        else:
+            # Rescale each sample by its fraction of missing data
+            recon_loss /= 1 - prob_nonzero(isnan_mask)
+        return recon_loss

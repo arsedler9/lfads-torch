@@ -8,6 +8,8 @@ import hydra
 import pytorch_lightning as pl
 import torch
 from hydra.utils import call, instantiate
+from omegaconf import open_dict
+from ray import tune
 
 from .utils import flatten
 
@@ -26,7 +28,11 @@ def run_model(
     # Compose the train config with properly formatted overrides
     config_path = Path(config_path)
     overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]
-    with hydra.initialize(config_path=config_path.parent, job_name="run_model"):
+    with hydra.initialize(
+        config_path=config_path.parent,
+        job_name="run_model",
+        version_base="1.1",
+    ):
         config = hydra.compose(config_name=config_path.name, overrides=overrides)
 
     # Avoid flooding the console with output during multi-model runs
@@ -48,6 +54,10 @@ def run_model(
         ckpt_path = max(glob(ckpt_pattern), key=os.path.getctime)
 
     if do_train:
+        # Ensure that WandB uses the same name as ray.tune
+        if "multi" in str(config_path) and "wandb_logger" in config.logger:
+            with open_dict(config):
+                config.logger.wandb_logger.name = tune.get_trial_name()
         # Instantiate the pytorch_lightning `Trainer` and its callbacks and loggers
         trainer = instantiate(
             config.trainer,

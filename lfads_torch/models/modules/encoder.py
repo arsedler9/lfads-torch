@@ -48,6 +48,7 @@ class Encoder(nn.Module):
 
     def forward(self, data: torch.Tensor):
         hps = self.hparams
+        batch_size = data.shape[0]
         assert data.shape[1] == hps.encod_seq_len, (
             f"Sequence length specified in HPs ({hps.encod_seq_len}) "
             f"must match data dim 1 ({data.shape[1]})."
@@ -61,7 +62,9 @@ class Encoder(nn.Module):
             ic_enc_data = data_drop
             ci_enc_data = data_drop
         # Pass data through IC encoder
-        _, h_n = self.ic_enc(ic_enc_data, self.ic_enc_h0)
+        ic_enc_h0 = torch.tile(self.ic_enc_h0, (1, batch_size, 1))
+        _, h_n = self.ic_enc(ic_enc_data, ic_enc_h0)
+        h_n = torch.cat([*h_n], dim=1)
         # Compute initial condition posterior
         h_n_drop = self.dropout(h_n)
         ic_params = self.ic_linear(h_n_drop)
@@ -69,7 +72,8 @@ class Encoder(nn.Module):
         ic_std = torch.sqrt(torch.exp(ic_logvar) + hps.ic_post_var_min)
         if self.use_con:
             # Pass data through CI encoder
-            ci, _ = self.ci_enc(ci_enc_data, self.ci_enc_h0)
+            ci_enc_h0 = torch.tile(self.ci_enc_h0, (1, batch_size, 1))
+            ci, _ = self.ci_enc(ci_enc_data, ci_enc_h0)
             # Add a lag to the controller input
             ci_fwd, ci_bwd = torch.split(ci, hps.ci_enc_dim, dim=2)
             ci_fwd = F.pad(ci_fwd, (0, 0, hps.ci_lag, 0, 0, 0))

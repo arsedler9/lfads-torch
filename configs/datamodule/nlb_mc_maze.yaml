@@ -3,6 +3,7 @@ dataset_name: mc_maze
 phase: val
 bin_width: 5
 batch_size: 256
+reshuffle_tv_seed: null
 num_workers: 0
 sv_rate: 0.0
 sv_seed: 0

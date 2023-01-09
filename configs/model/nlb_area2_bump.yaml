@@ -37,6 +37,10 @@ train_aug_stack:
   loss_order: [0]
 infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
+  transforms:
+    # Ignore NaNs for heldout data in test-phase validation loss
+    - _target_: lfads_torch.models.modules.augmentations.IgnoreNaNLoss
+  loss_order: [0]
 
 # --------- priors / posteriors --------- #
 reconstruction:

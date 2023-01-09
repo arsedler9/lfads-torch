@@ -1,9 +1,11 @@
 # Must have `nlb_lightning` installed
+import torch
+import torch.nn.functional as F
 from nlb_lightning.datamodules import NLBDataModule
 from pytorch_lightning.trainer.supporters import CombinedLoader
 from torch.utils.data import DataLoader
 
-from .base import attach_tensors
+from .base import attach_tensors, reshuffle_train_valid
 
 
 class LFADSNLBDataModule(NLBDataModule):
@@ -13,6 +15,7 @@ class LFADSNLBDataModule(NLBDataModule):
         phase: str = "val",
         bin_width: int = 5,
         batch_size: int = 64,
+        reshuffle_tv_seed: int = None,
         num_workers: int = 4,
         sv_rate: float = 0.0,
         sv_seed: int = 0,
@@ -58,9 +61,26 @@ class LFADSNLBDataModule(NLBDataModule):
     def setup(self, stage=None):
         # Load the data tuples as defined in nlb_lightning
         super().setup(stage=stage)
+        hps = self.hparams
+        if hps.reshuffle_tv_seed is not None:
+            # Reshuffle the training / validation split
+            self.train_data, self.valid_data = reshuffle_train_valid(
+                train_tensors=self.train_data,
+                valid_tensors=self.valid_data,
+                seed=hps.reshuffle_tv_seed,
+            )
         train_encod_data, train_recon_data, train_behavior = self.train_data
-        # TODO: Update this it can handle test phase
-        valid_encod_data, valid_recon_data, valid_behavior = self.valid_data
+        if hps.phase == "test":
+            # Generate placeholders for the missing test-phase data
+            (valid_encod_data,) = self.valid_data
+            behavior_shape = (len(valid_encod_data),) + train_behavior.shape[1:]
+            valid_behavior = torch.full(behavior_shape, float("nan"))
+            t_forward = train_recon_data.shape[1] - valid_encod_data.shape[1]
+            n_heldout = train_recon_data.shape[2] - valid_encod_data.shape[2]
+            pad_shape = (0, n_heldout, 0, t_forward)
+            valid_recon_data = F.pad(valid_encod_data, pad_shape, value=float("nan"))
+        else:
+            valid_encod_data, valid_recon_data, valid_behavior = self.valid_data
         data_dicts = [
             {
                 "train_encod_data": train_encod_data.numpy(),
