@@ -28,6 +28,13 @@ readout:
 # --------- augmentation ---------#
 train_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
+  transforms:
+    - _target_: lfads_torch.models.modules.augmentations.CoordinatedDropout
+      cd_rate: 0.35
+      cd_pass_rate: 0.0
+      ic_enc_seq_len: ${model.ic_enc_seq_len}
+  batch_order: [0]
+  loss_order: [0]
 infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
 
@@ -48,28 +55,28 @@ ic_prior:
 ic_post_var_min: 1.0e-4
 
 # --------- misc --------- #
-dropout_rate: 0.0
+dropout_rate: 0.1
 cell_clip: 5.0
-loss_scale: 1
+loss_scale: 1.0
 recon_reduce_mean: True
 
 # --------- learning rate --------- #
-lr_init: 1.0e-3
+lr_init: 1.0e-2
 lr_stop: 1.0e-5
 lr_decay: 0.95
 lr_patience: 6
-lr_adam_epsilon: 1.0e-7
-lr_scheduler: True
+lr_adam_epsilon: 3.162277660168379e-06
+lr_scheduler: False
 
 # --------- regularization --------- #
 weight_decay: 0.0
 l2_start_epoch: 0
-l2_increase_epoch: 70
+l2_increase_epoch: 80
 l2_ic_enc_scale: 0.0
 l2_ci_enc_scale: 0.0
 l2_gen_scale: 2.25e-5
 l2_con_scale: 3.00e-4
 kl_start_epoch: 0
-kl_increase_epoch: 70
+kl_increase_epoch: 80
 kl_ic_scale: 6.65e-7
 kl_co_scale: 5.00e-5
