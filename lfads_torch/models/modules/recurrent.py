@@ -77,5 +77,5 @@ class BidirectionalClippedGRU(nn.Module):
         output_bwd, hn_bwd = self.bwd_gru(input_bwd, h0_bwd)
         output_bwd = torch.flip(output_bwd, [1])
         output = torch.cat([output_fwd, output_bwd], dim=2)
-        h_n = torch.cat([hn_fwd, hn_bwd], dim=1)
+        h_n = torch.stack([hn_fwd, hn_bwd])
         return output, h_n
