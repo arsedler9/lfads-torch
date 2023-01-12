@@ -19,15 +19,15 @@ class ExpSmoothedMetric(Metric):
     def __init__(self, coef=0.9, **kwargs):
         super().__init__(**kwargs)
         self.coef = coef
-        # Automatically reset by torchmetrics after `compute` is called
+        # PTL will automatically `reset` these after each epoch
         self.add_state("value", default=torch.tensor(0.0))
         self.add_state("count", default=torch.tensor(0))
-        # `prev` must be immune to `reset`
+        # Previous value must be immune to `reset`
         self.prev = torch.tensor(float("nan"))
 
-    def update(self, value):
-        self.value += value
-        self.count += 1
+    def update(self, value, batch_size):
+        self.value += value * batch_size
+        self.count += batch_size
 
     def compute(self):
         curr = self.value / self.count

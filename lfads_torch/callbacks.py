@@ -344,7 +344,7 @@ class NLBEvaluation(pl.Callback):
         for k, v in metrics.items():
             if k not in self.smth_metrics:
                 self.smth_metrics[k] = ExpSmoothedMetric(coef=0.7)
-            self.smth_metrics[k].update(v)
+            self.smth_metrics[k].update(v, 1)
         # Log actual and smoothed metrics
         pl_module.log_dict(
             {

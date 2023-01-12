@@ -86,7 +86,7 @@ class LFADS(pl.LightningModule):
         self.ic_prior = ic_prior
         self.co_prior = co_prior
         # Create metric for exponentially-smoothed `valid/recon`
-        self.valid_recon_smth = ExpSmoothedMetric()
+        self.valid_recon_smth = ExpSmoothedMetric(coef=0.3)
         # Store the data augmentation stacks
         self.train_aug_stack = train_aug_stack
         self.infer_aug_stack = infer_aug_stack
@@ -275,7 +275,7 @@ class LFADS(pl.LightningModule):
         }
         if split == "valid":
             # Update the smoothed reconstruction loss
-            self.valid_recon_smth.update(recon)
+            self.valid_recon_smth.update(recon, batch_size)
             # Add validation-only metrics
             metrics.update(
                 {
