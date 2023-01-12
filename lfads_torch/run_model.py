@@ -54,10 +54,11 @@ def run_model(
         ckpt_path = max(glob(ckpt_pattern), key=os.path.getctime)
 
     if do_train:
-        # Ensure that WandB uses the same name as ray.tune
-        if "multi" in str(config_path) and "wandb_logger" in config.logger:
+        # If both ray.tune and wandb are being used, ensure that loggers use same name
+        if "single" not in str(config_path) and "wandb_logger" in config.logger:
             with open_dict(config):
                 config.logger.wandb_logger.name = tune.get_trial_name()
+                config.logger.wandb_logger.id = tune.get_trial_name()
         # Instantiate the pytorch_lightning `Trainer` and its callbacks and loggers
         trainer = instantiate(
             config.trainer,
