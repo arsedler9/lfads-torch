@@ -4,7 +4,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-import ray
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import PopulationBasedTraining
@@ -18,17 +17,23 @@ from lfads_torch.run_model import run_model
 logger = logging.getLogger(__name__)
 
 # ---------- OPTIONS -----------
-LOCAL_MODE = False
 OVERWRITE = True
-RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
-RUNS_HOME = Path("/snel/share/runs/lfads-torch/validation")
-RUN_DIR = RUNS_HOME / "pbt" / RUN_TAG
-CONFIG_PATH = Path("../configs/pbt.yaml")
+PROJECT_STR = 'lfads-torch'
+DATASET_STR = "nlb_mc_maze"
+RUN_TAG = datetime.now().strftime("%Y%m%d") + "_examplePBT"
+RUN_DIR = Path("/snel/share/runs") / PROJECT_STR / DATASET_STR / "pbt" / RUN_TAG
+
 # ------------------------------
 
-# Initialize the `ray` server in local mode if necessary
-if LOCAL_MODE:
-    ray.init(local_mode=True)
+# Set the config path
+CONFIG_PATH = "../configs/pbt.yaml"
+# Set the mandatory config overrides to select datamodule and model
+mandatory_overrides = {
+    "datamodule": DATASET_STR,
+    "model": DATASET_STR,
+    "logger.wandb_logger.project": PROJECT_STR,
+    "logger.wandb_logger.tags.0": RUN_TAG,
+}
 # Overwrite the directory if necessary
 if RUN_DIR.exists() and OVERWRITE:
     shutil.rmtree(RUN_DIR)
@@ -51,17 +56,16 @@ analysis = tune.run(
     #     top=10,
     #     patience=100,
     # ),
-    config=dict(
-        model={
-            "lr_init": tune.choice([4e-3]),
-            "train_aug_stack.transforms.0.cd_rate": tune.choice([0.5]),
-            "dropout_rate": tune.uniform(0.0, 0.6),
-            "l2_gen_scale": tune.loguniform(1e-4, 1e0),
-            "l2_con_scale": tune.loguniform(1e-4, 1e0),
-            "kl_co_scale": tune.loguniform(1e-6, 1e-4),
-            "kl_ic_scale": tune.loguniform(1e-5, 1e-3),
-        },
-    ),
+    config={
+        **mandatory_overrides,
+        "model.lr_init": tune.choice([4e-3]),
+        "model.train_aug_stack.transforms.0.cd_rate": tune.choice([0.5]),
+        "model.dropout_rate": tune.uniform(0.0, 0.6),
+        "model.l2_gen_scale": tune.loguniform(1e-4, 1e0),
+        "model.l2_con_scale": tune.loguniform(1e-4, 1e0),
+        "model.kl_co_scale": tune.loguniform(1e-6, 1e-4),
+        "model.kl_ic_scale": tune.loguniform(1e-5, 1e-3),
+    },
     resources_per_trial=dict(cpu=3, gpu=0.5),
     num_samples=20,
     local_dir=RUN_DIR.parent,
@@ -69,18 +73,16 @@ analysis = tune.run(
     scheduler=PopulationBasedTraining(
         time_attr="cur_epoch",
         perturbation_interval=25,
-        burn_in_period=100,
-        hyperparam_mutations=dict(
-            model={
-                "lr_init": tune.loguniform(1e-5, 5e-3),
-                "train_aug_stack.transforms.0.cd_rate": tune.uniform(0.01, 0.7),
-                "dropout_rate": tune.uniform(0.0, 0.7),
-                "l2_gen_scale": tune.loguniform(1e-4, 1e0),
-                "l2_con_scale": tune.loguniform(1e-4, 1e0),
-                "kl_co_scale": tune.loguniform(1e-6, 1e-4),
-                "kl_ic_scale": tune.loguniform(1e-5, 1e-3),
-            },
-        ),
+        burn_in_period=100, # ramping + perturbation_interval
+        hyperparam_mutations={
+            "model.lr_init": tune.loguniform(1e-5, 5e-3),
+            "model.train_aug_stack.transforms.0.cd_rate": tune.uniform(0.01, 0.7),
+            "model.dropout_rate": tune.uniform(0.0, 0.7),
+            "model.l2_gen_scale": tune.loguniform(1e-4, 1e0),
+            "model.l2_con_scale": tune.loguniform(1e-4, 1e0),
+            "model.kl_co_scale": tune.loguniform(1e-6, 1e-4),
+            "model.kl_ic_scale": tune.loguniform(1e-5, 1e-3),
+        },
         quantile_fraction=0.25,
         resample_probability=0.25,
         custom_explore_fn=None,
@@ -107,4 +109,5 @@ run_model(
     checkpoint_dir=best_ckpt_dir,
     config_path=CONFIG_PATH,
     do_train=False,
+    overrides=mandatory_overrides,
 )
