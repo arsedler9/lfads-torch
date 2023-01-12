@@ -3,7 +3,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-import ray
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers import FIFOScheduler
@@ -14,17 +13,22 @@ from lfads_torch.run_model import run_model
 logger = logging.getLogger(__name__)
 
 # ---------- OPTIONS -----------
-LOCAL_MODE = False
 OVERWRITE = True
-RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
-RUNS_HOME = Path("/snel/share/runs/lfads-torch/validation")
-RUN_DIR = RUNS_HOME / "multi" / RUN_TAG
-CONFIG_PATH = Path("../configs/multi.yaml")
+PROJECT_STR = 'lfads-torch'
+DATASET_STR = "nlb_mc_maze"
+RUN_TAG = datetime.now().strftime("%Y%m%d") + "_exampleMulti"
+RUN_DIR = Path("/snel/share/runs") / PROJECT_STR / DATASET_STR / "multi" / RUN_TAG
 # ------------------------------
 
-# Initialize the `ray` server in local mode if necessary
-if LOCAL_MODE:
-    ray.init(local_mode=True)
+# Set the config path
+CONFIG_PATH = "../configs/multi.yaml"
+# Set the mandatory config overrides to select datamodule and model
+mandatory_overrides = {
+    "datamodule": DATASET_STR,
+    "model": DATASET_STR,
+    "logger.wandb_logger.project": PROJECT_STR,
+    "logger.wandb_logger.tags.0": RUN_TAG,
+}
 # Overwrite the directory if necessary
 if RUN_DIR.exists() and OVERWRITE:
     shutil.rmtree(RUN_DIR)
@@ -37,17 +41,15 @@ tune.run(
     metric="valid/recon_smth",
     mode="min",
     name=RUN_DIR.name,
-    config=dict(
-        model=dict(
-            dropout_rate=tune.uniform(0.0, 0.15),
-            l2_ic_enc_scale=tune.loguniform(1e-5, 1e-3),
-            l2_ci_enc_scale=tune.loguniform(1e-5, 1e-3),
-            l2_gen_scale=tune.loguniform(1e-5, 1e0),
-            l2_con_scale=tune.loguniform(1e-5, 1e0),
-            kl_co_scale=tune.loguniform(1e-6, 1e-3),
-            kl_ic_scale=tune.loguniform(1e-6, 1e-3),
-        ),
-    ),
+    config={
+        "model.dropout_rate": tune.uniform(0.0, 0.15),
+        "model.l2_ic_enc_scale": tune.loguniform(1e-5, 1e-3),
+        "model.l2_ci_enc_scale": tune.loguniform(1e-5, 1e-3),
+        "model.l2_gen_scale": tune.loguniform(1e-5, 1e0),
+        "model.l2_con_scale": tune.loguniform(1e-5, 1e0),
+        "model.kl_co_scale": tune.loguniform(1e-6, 1e-3),
+        "model.kl_ic_scale": tune.loguniform(1e-6, 1e-3),
+    },
     resources_per_trial=dict(cpu=2, gpu=0.3),
     num_samples=90,
     local_dir=RUN_DIR.parent,

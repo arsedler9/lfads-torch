@@ -28,7 +28,6 @@ callbacks:
     _target_: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
     metrics:
       - valid/recon_smth
-      - nlb/co_bps_smth
       - cur_epoch
     filename: tune.ckpt
     "on": validation_end
@@ -50,6 +49,13 @@ logger:
       _target_: ray.tune.get_trial_dir
     version: ""
     name: ""
+  wandb_logger:
+    _target_: pytorch_lightning.loggers.WandbLogger
+    project: null # Overwrite with PROJECT_STR in the run script
+    tags:
+      - null # Overwrite with RUN_TAG in the run script
+      - pbt
+      - ${datamodule.dataset_name}
 
 posterior_sampling:
   use_best_ckpt: False

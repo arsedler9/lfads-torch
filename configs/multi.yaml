@@ -38,7 +38,6 @@ callbacks:
     _target_: ray.tune.integration.pytorch_lightning.TuneReportCallback
     metrics:
       - valid/recon_smth
-      - nlb/co_bps_smth
       - cur_epoch
     "on": validation_end
 
@@ -52,11 +51,11 @@ logger:
     name: ""
   wandb_logger:
     _target_: pytorch_lightning.loggers.WandbLogger
-    # TODO: enforce updating `project` so WandB will store data appropriately
-    project: validation-lfads-torch
+    project: null # Overwrite with PROJECT_STR in the run script
     tags:
+      - null # Overwrite with RUN_TAG in the run script
+      - multi
       - ${datamodule.dataset_name}
-      - null # Overwrite this in the run script
 
 posterior_sampling:
   use_best_ckpt: True
