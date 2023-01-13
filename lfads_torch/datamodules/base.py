@@ -131,6 +131,7 @@ class BasicDataModule(pl.LightningDataModule):
         self,
         data_paths: list[str],
         batch_size: int = 64,
+        reshuffle_tv_seed: int = None,
         num_workers: int = 4,
         sv_rate: float = 0.0,
         sv_seed: int = 0,
@@ -158,6 +159,13 @@ class BasicDataModule(pl.LightningDataModule):
             data_dicts.append(data_dict)
         # Attach data to the datamodule
         attach_tensors(self, data_dicts)
+        if hps.reshuffle_tv_seed is not None:
+            # Reshuffle the training / validation split
+            self.train_data, self.valid_data = reshuffle_train_valid(
+                train_tensors=self.train_data,
+                valid_tensors=self.valid_data,
+                seed=hps.reshuffle_tv_seed,
+            )
 
     def train_dataloader(self, shuffle=True):
         # PTL provides all batches at once, so divide amongst dataloaders
