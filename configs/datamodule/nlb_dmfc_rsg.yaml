@@ -2,7 +2,8 @@ _target_: lfads_torch.datamodules.nlb.LFADSNLBDataModule
 dataset_name: dmfc_rsg
 phase: val
 bin_width: 5
-batch_size: 256
+batch_size: 300
+reshuffle_tv_seed: 42
 num_workers: 0
 sv_rate: 0.0
 sv_seed: 0
