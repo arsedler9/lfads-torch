@@ -329,15 +329,15 @@ class NLBEvaluation(pl.Callback):
                     trainer.datamodule.train_decode_mask,
                     rates_obs,
                     behavior,
-                    trainer.datamodule.eval_decode_mask,
+                    trainer.datamodule.valid_decode_mask,
                     self.decoding_cv_sweep,
                 )
             metrics["nlb/behavior_r2"] = max(behavior_r2, -1.0)
         # Compute PSTH reconstruction performance
         if hasattr(trainer.datamodule, "psth"):
             psth = trainer.datamodule.psth
-            cond_idxs = trainer.datamodule.val_cond_idxs
-            jitter = trainer.datamodule.eval_jitter
+            cond_idxs = trainer.datamodule.valid_cond_idxs
+            jitter = trainer.datamodule.valid_jitter
             psth_r2 = eval_psth(psth, rates_obs, cond_idxs, jitter)
             metrics["nlb/psth_r2"] = max(psth_r2, -1.0)
         # Compute smoothed metrics

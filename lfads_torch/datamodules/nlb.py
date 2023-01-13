@@ -1,4 +1,5 @@
 # Must have `nlb_lightning` installed
+import numpy as np
 import torch
 import torch.nn.functional as F
 from nlb_lightning.datamodules import NLBDataModule
@@ -64,11 +65,18 @@ class LFADSNLBDataModule(NLBDataModule):
         hps = self.hparams
         if hps.reshuffle_tv_seed is not None:
             # Reshuffle the training / validation split
-            self.train_data, self.valid_data = reshuffle_train_valid(
+            (
+                self.train_data,
+                self.valid_data,
+                train_idxs,
+                valid_idxs,
+            ) = reshuffle_train_valid(
                 train_tensors=self.train_data,
                 valid_tensors=self.valid_data,
                 seed=hps.reshuffle_tv_seed,
             )
+            self._reshuffle_evaluation_tensors(train_idxs, valid_idxs)
+        # Unpack the training data
         train_encod_data, train_recon_data, train_behavior = self.train_data
         if hps.phase == "test":
             # Generate placeholders for the missing test-phase data
@@ -80,6 +88,7 @@ class LFADSNLBDataModule(NLBDataModule):
             pad_shape = (0, n_heldout, 0, t_forward)
             valid_recon_data = F.pad(valid_encod_data, pad_shape, value=float("nan"))
         else:
+            # Unpack the validation data
             valid_encod_data, valid_recon_data, valid_behavior = self.valid_data
         data_dicts = [
             {
@@ -143,3 +152,35 @@ class LFADSNLBDataModule(NLBDataModule):
             for s in range(len(self.train_ds))
         }
         return dataloaders
+
+    def _reshuffle_evaluation_tensors(self, train_idxs, valid_idxs):
+        """Reshuffle the evaluation tensors to match the new train/valid split."""
+        if hasattr(self, "valid_cond_idxs"):
+            n_train = len(self.train_data[0])
+            # Merge the condition indices
+            cond_idxs = [
+                np.concatenate([tr_ixs, va_ixs + n_train])
+                for tr_ixs, va_ixs in zip(self.train_cond_idxs, self.valid_cond_idxs)
+            ]
+            # Convert indices to the new split
+            lookup = np.argsort(np.concatenate([train_idxs, valid_idxs]))
+            cond_idxs = [lookup[ixs] for ixs in cond_idxs]
+            # Split the condition indices
+            self.train_cond_idxs = np.array(
+                [ixs[ixs < n_train] for ixs in cond_idxs], dtype=object
+            )
+            self.valid_cond_idxs = np.array(
+                [ixs[ixs >= n_train] - n_train for ixs in cond_idxs], dtype=object
+            )
+        if hasattr(self, "valid_jitter"):
+            # Resplit the jitter tensors
+            jitter = np.concatenate([self.train_jitter, self.valid_jitter])
+            self.train_jitter = jitter[train_idxs]
+            self.valid_jitter = jitter[valid_idxs]
+        if hasattr(self, "valid_decode_mask"):
+            # Resplit the decode mask tensors
+            decode_mask = np.concatenate(
+                [self.train_decode_mask, self.valid_decode_mask]
+            )
+            self.train_decode_mask = decode_mask[train_idxs]
+            self.valid_decode_mask = decode_mask[valid_idxs]

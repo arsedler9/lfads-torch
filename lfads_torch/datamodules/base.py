@@ -103,7 +103,7 @@ def reshuffle_train_valid(train_tensors, valid_tensors, seed):
     train_inds, valid_inds = torch.split(inds, [n_train, n_valid])
     train_tensors = [t[train_inds] for t in tensors]
     valid_tensors = [t[valid_inds] for t in tensors]
-    return train_tensors, valid_tensors
+    return train_tensors, valid_tensors, train_inds, valid_inds
 
 
 class SessionDataset(Dataset):
@@ -161,7 +161,7 @@ class BasicDataModule(pl.LightningDataModule):
         attach_tensors(self, data_dicts)
         if hps.reshuffle_tv_seed is not None:
             # Reshuffle the training / validation split
-            self.train_data, self.valid_data = reshuffle_train_valid(
+            self.train_data, self.valid_data, _, _ = reshuffle_train_valid(
                 train_tensors=self.train_data,
                 valid_tensors=self.valid_data,
                 seed=hps.reshuffle_tv_seed,
