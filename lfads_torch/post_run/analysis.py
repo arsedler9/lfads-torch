@@ -69,10 +69,5 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
                     h5file.create_dataset(
                         f"{split}_{name}", data=getattr(post_means, name)
                     )
-                # Save the dimensions of the encoding data
-                if split == "train":
-                    hps = model.hparams
-                    h5file.create_dataset("encod_data_dim", data=hps.encod_data_dim)
-                    h5file.create_dataset("encod_seq_len", data=hps.encod_seq_len)
         # Log message about sucessful completion
         logger.info(f"Session {s} posterior means successfully saved to `{sess_fname}`")
