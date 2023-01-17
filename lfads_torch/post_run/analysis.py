@@ -53,7 +53,7 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
     for s, dataloaders in pred_dls.items():
         # Give each session a unique file path
         sess_fname = f"{filename.stem}_sess{s}{filename.suffix}"
-        for split in ["train", "valid"]:
+        for split in dataloaders.keys():
             # Compute average model outputs for each session and then recombine batches
             logger.info(f"Running posterior sampling on Session {s} {split} data.")
             post_means = [run_ps_batch(s, batch) for batch in tqdm(dataloaders[split])]
@@ -67,7 +67,7 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
                         f"{split}_{name}", data=getattr(post_means, name)
                     )
                 # Save the dimensions of the encoding data
-                if split == "valid":
+                if split == "train":
                     hps = model.hparams
                     h5file.create_dataset("encod_data_dim", data=hps.encod_data_dim)
                     h5file.create_dataset("encod_seq_len", data=hps.encod_seq_len)
