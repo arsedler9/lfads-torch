@@ -1,4 +1,5 @@
 import logging
+import shutil
 from pathlib import Path
 
 import h5py
@@ -53,6 +54,8 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
     for s, dataloaders in pred_dls.items():
         # Give each session a unique file path
         sess_fname = f"{filename.stem}_sess{s}{filename.suffix}"
+        # Copy data file for easy access to original data and indices
+        shutil.copyfile(datamodule.hparams.data_paths[s], sess_fname)
         for split in dataloaders.keys():
             # Compute average model outputs for each session and then recombine batches
             logger.info(f"Running posterior sampling on Session {s} {split} data.")
