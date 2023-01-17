@@ -1,10 +1,13 @@
-_target_: lfads_torch.datamodules.nlb.LFADSNLBDataModule
-dataset_name: dmfc_rsg
-phase: val
-bin_width: 5
-batch_size: 300
-reshuffle_tv_seed: 42
-num_workers: 0
+# _target_: lfads_torch.datamodules.nlb.LFADSNLBDataModule
+# dataset_name: dmfc_rsg
+# phase: val
+# bin_width: 5
+# reshuffle_tv_seed: 42
+
+_target_: lfads_torch.datamodules.base.BasicDataModule
+data_paths:
+  - /snel/share/data/validation-lfads-torch/tf2-split/dmfc_rsg-05ms.h5
+batch_size: 256
 sv_rate: 0.0
 sv_seed: 0
 # Name with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
