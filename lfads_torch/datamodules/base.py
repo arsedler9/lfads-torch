@@ -25,24 +25,24 @@ def attach_tensors(datamodule, data_dicts: list[dict], extra_keys: list[str] = [
     for data_dict in data_dicts:
 
         def create_session_batch(prefix):
-            # Ensure that the data dict has all of the required keys
+            # Ensure that the data dict has all of the required keys TODO: Sparse?
             assert all(f"{prefix}_{key}" in data_dict for key in MANDATORY_KEYS[prefix])
             encod_data = to_tensor(data_dict[f"{prefix}_encod_data"])
             recon_data = to_tensor(data_dict[f"{prefix}_recon_data"])
-            # Create sample validation mask
+            # Create sample validation mask # TODO: Sparse and use complement?
             bern_p = 1 - hps.sv_rate if prefix != "test" else 1.0
-            sv_mask = torch.bernoulli(encod_data, p=bern_p, generator=sv_gen)
+            sv_mask = (torch.rand(encod_data.shape, generator=sv_gen) < bern_p).float()
             # Load or simulate external inputs
             if f"{prefix}_ext_input" in data_dict:
                 ext_input = to_tensor(data_dict[f"{prefix}_ext_input"])
             else:
-                ext_input = torch.zeros_like(encod_data[..., :0])
-            # Load or simulate ground truth
+                ext_input = torch.zeros(encod_data.shape)[..., :0]
+            # Load or simulate ground truth TODO: use None instead of NaN?
             if f"{prefix}_truth" in data_dict:
                 cf = data_dict["conversion_factor"]
                 truth = to_tensor(data_dict[f"{prefix}_truth"]) / cf
             else:
-                truth = torch.full_like(recon_data, float("nan"))
+                truth = torch.full(recon_data.shape, float("nan"))
             # Remove unnecessary data during IC encoder segment
             sv_mask = sv_mask[:, hps.dm_ic_enc_seq_len :]
             ext_input = ext_input[:, hps.dm_ic_enc_seq_len :]
