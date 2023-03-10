@@ -1,16 +1,5 @@
-learning_rate_monitor:
-  _target_: pytorch_lightning.callbacks.LearningRateMonitor
-  logging_interval: epoch
-
-valid_raster_plot:
+raster_plot:
   _target_: lfads_torch.callbacks.RasterPlot
-  n_samples: 3
-  log_every_n_epochs: 500
-
-train_raster_plot:
-  _target_: lfads_torch.callbacks.RasterPlot
-  split: train
-  n_samples: 3
   log_every_n_epochs: 500
 
 trajectory_plot:

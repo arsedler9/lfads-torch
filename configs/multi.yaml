@@ -40,6 +40,9 @@ callbacks:
       - valid/recon_smth
       - cur_epoch
     "on": validation_end
+  learning_rate_monitor:
+    _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: epoch
 
 logger:
   tensorboard_logger:

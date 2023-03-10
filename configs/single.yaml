@@ -31,6 +31,9 @@ callbacks:
     mode: min
     patience: 200
     min_delta: 0
+  learning_rate_monitor:
+    _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: epoch
 
 posterior_sampling:
   use_best_ckpt: True

@@ -71,14 +71,14 @@ class RasterPlot(pl.Callback):
     inferred inputs and rates and logs to tensorboard.
     """
 
-    def __init__(self, split="valid", n_samples=2, log_every_n_epochs=20):
+    def __init__(self, split="valid", n_samples=3, log_every_n_epochs=100):
         """Initializes the callback.
         Parameters
         ----------
         n_samples : int, optional
-            The number of samples to plot, by default 2
+            The number of samples to plot, by default 3
         log_every_n_epochs : int, optional
-            The frequency with which to plot and log, by default 20
+            The frequency with which to plot and log, by default 100
         """
         assert split in ["train", "valid"]
         self.split = split
