@@ -7,5 +7,5 @@ trajectory_plot:
   log_every_n_epochs: 500
 
 evaluation_callback:
-  _target_: lfads_torch.callbacks.NLBEvaluation
+  _target_: lfads_torch.extensions.nlb.NLBEvaluation
   log_every_n_epochs: 5

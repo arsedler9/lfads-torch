@@ -28,7 +28,7 @@ Note that for both training and validation data, `encod_data` may be the same as
 
 Create a new configuration file for your dataset at `configs/datamodule/my_datamodule.yaml`:
 ```
-_target_: lfads_torch.datamodules.base.BasicDataModule
+_target_: lfads_torch.datamodules.BasicDataModule
 data_paths:
   - <PATH-TO-HDF5-FILE>
 batch_size: <YOUR-BATCH-SIZE>
@@ -53,7 +53,7 @@ overrides={
     "model": "my_model",
 }
 ```
-This will tell `lfads-torch` to use the custom datamodule and model configurations you just defined. Running this script in your `lfads-torch` environment should begin optimizing a single model on your GPU if it is available. Logs and checkpoints will be saved in the model directory, and model outputs will be saved in `lfads_output.h5` when training is complete. Feel free to inspect `configs/single.yaml`, `configs/logger`, and `configs/callbacks` and experiment with different `Trainer` arguments and alternative loggers and callbacks.
+This will tell `lfads-torch` to use the custom datamodule and model configurations you just defined. Running this script in your `lfads-torch` environment should begin optimizing a single model on your GPU if it is available. Logs and checkpoints will be saved in the model directory, and model outputs will be saved in `lfads_output.h5` when training is complete. Feel free to inspect `configs/single.yaml` and `configs/callbacks` to experiment with different `Trainer` arguments, alternative loggers and callbacks, and more.
 
 As a next step, try specifying a random search in `scripts/run_multi.py` or a population-based training run in `scripts/run_pbt.py` and running a large-scale sweep to identify the optimal hyperparameters for your dataset!
 
@@ -80,8 +80,5 @@ The LFADS model computes KL penalties between posteriors and priors for both ini
 1. Brianna M Karpowicz, Yahia H Ali, Lahiru N Wimalasena, Andrew R Sedler, Mohammad Reza Keshtkaran, Kevin Bodkin, Xuan Ma, Lee E Miller, and Chethan Pandarinath. Stabilizing brain-computer interfaces through alignment of latent dynamics. bioRxiv, 2022.
 1. Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, et al. Pytorch: An imperative style, high-performance deep learning library. Advances in Neural Information Processing Systems, 32, 2019.
 1. William Falcon and The PyTorch Lightning team. PyTorch Lightning, 3 2019. URL `https://github.com/Lightning-AI/lightning`.
-1. Omry Yadan. Hydra - A framework for elegantly configuring complex applications.
-Github, 2019. URL `https://github.com/facebookresearch/hydra`.
-1. Richard Liaw, Eric Liang, Robert Nishihara, Philipp Moritz, Joseph E Gonzalez, and
-Ion Stoica. Tune: A research platform for distributed model selection and training.
-arXiv preprint arXiv:1807.05118, 2018.
+1. Omry Yadan. Hydra - A framework for elegantly configuring complex applications. Github, 2019. URL `https://github.com/facebookresearch/hydra`.
+1. Richard Liaw, Eric Liang, Robert Nishihara, Philipp Moritz, Joseph E Gonzalez, and Ion Stoica. Tune: A research platform for distributed model selection and training. arXiv preprint arXiv:1807.05118, 2018.
