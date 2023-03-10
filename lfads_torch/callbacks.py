@@ -316,7 +316,7 @@ class NLBEvaluation(pl.Callback):
         rates_obs = rates[:, :n_obs]
         train_rates_obs = train_rates[:, :n_obs]
         # Compute behavioral decoding performance
-        if "dmfc_rsg" in trainer.datamodule.hparams.dataset_name:
+        if behavior.ndim < 3:
             tp_corr = speed_tp_correlation(heldout, rates_obs, behavior)
             metrics["nlb/tp_corr"] = tp_corr
         else:
@@ -336,8 +336,8 @@ class NLBEvaluation(pl.Callback):
         # Compute PSTH reconstruction performance
         if hasattr(trainer.datamodule, "psth"):
             psth = trainer.datamodule.psth
-            cond_idxs = trainer.datamodule.valid_cond_idxs
-            jitter = trainer.datamodule.valid_jitter
+            cond_idxs = trainer.datamodule.valid_cond_idx
+            jitter = getattr(trainer.datamodule, "valid_jitter", None)
             psth_r2 = eval_psth(psth, rates_obs, cond_idxs, jitter)
             metrics["nlb/psth_r2"] = max(psth_r2, -1.0)
         # Compute smoothed metrics

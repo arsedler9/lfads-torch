@@ -8,10 +8,12 @@ import hydra
 import pytorch_lightning as pl
 import torch
 from hydra.utils import call, instantiate
-from omegaconf import open_dict
+from omegaconf import OmegaConf, open_dict
 from ray import tune
 
 from .utils import flatten
+
+OmegaConf.register_new_resolver("relpath", lambda p: Path(__file__).parent / ".." / p)
 
 
 def run_model(

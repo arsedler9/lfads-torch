@@ -38,7 +38,6 @@ train_aug_stack:
 infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
   transforms:
-    # Ignore NaNs for heldout data in test-phase validation loss
     - _target_: lfads_torch.models.modules.augmentations.IgnoreNaNLoss
       encod_data_dim: ${model.encod_data_dim}
       encod_seq_len: ${model.encod_seq_len}
@@ -48,6 +47,7 @@ infer_aug_stack:
 # --------- priors / posteriors --------- #
 reconstruction:
   - _target_: lfads_torch.models.modules.recons.Poisson
+variational: True
 co_prior:
   _target_: lfads_torch.models.modules.priors.AutoregressiveMultivariateNormal
   tau: 10.0
@@ -68,15 +68,20 @@ recon_reduce_mean: True
 
 # --------- learning rate --------- #
 lr_init: 4.0e-3
-lr_adam_epsilon: 1.0e-8
-# scheduler params not used during pbt
 lr_stop: 1.0e-5
 lr_decay: 0.95
 lr_patience: 6
+lr_adam_epsilon: 1.0e-8
 lr_scheduler: False
 
 # --------- regularization --------- #
 weight_decay: 0.0
+l2_start_epoch: 0
+l2_increase_epoch: 80
+l2_ic_enc_scale: 0.0
+l2_ci_enc_scale: 0.0
+l2_gen_scale: 0.0 # sampled
+l2_con_scale: 0.0 # sampled
 kl_start_epoch: 0
 kl_increase_epoch: 80
 kl_ic_scale: 0.0 # sampled

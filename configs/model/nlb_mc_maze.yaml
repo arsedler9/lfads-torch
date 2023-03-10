@@ -2,8 +2,8 @@ _target_: lfads_torch.models.base_model.LFADS
 
 # --------- architecture --------- #
 encod_data_dim: 137
-encod_seq_len: 140
-recon_seq_len: 180
+encod_seq_len: 35
+recon_seq_len: 45
 ext_input_dim: 0
 ic_enc_seq_len: 0
 ic_enc_dim: 100
@@ -30,7 +30,7 @@ train_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
   transforms:
     - _target_: lfads_torch.models.modules.augmentations.CoordinatedDropout
-      cd_rate: 0.3
+      cd_rate: 0.3 # sampled
       cd_pass_rate: 0.0
       ic_enc_seq_len: ${model.ic_enc_seq_len}
   batch_order: [0]
@@ -38,7 +38,6 @@ train_aug_stack:
 infer_aug_stack:
   _target_: lfads_torch.models.modules.augmentations.AugmentationStack
   transforms:
-    # Ignore NaNs for heldout data in test-phase validation loss
     - _target_: lfads_torch.models.modules.augmentations.IgnoreNaNLoss
       encod_data_dim: ${model.encod_data_dim}
       encod_seq_len: ${model.encod_seq_len}
@@ -68,12 +67,12 @@ loss_scale: 1.0e+4
 recon_reduce_mean: True
 
 # --------- learning rate --------- #
-lr_init: 1.0e-2
+lr_init: 4.0e-3
 lr_stop: 1.0e-5
 lr_decay: 0.95
 lr_patience: 6
-lr_adam_epsilon: 1.0e-7
-lr_scheduler: True
+lr_adam_epsilon: 1.0e-8
+lr_scheduler: False
 
 # --------- regularization --------- #
 weight_decay: 0.0

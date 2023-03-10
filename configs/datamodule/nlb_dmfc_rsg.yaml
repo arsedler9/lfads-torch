@@ -1,7 +1,12 @@
-_target_: lfads_torch.datamodules.nlb.LFADSNLBDataModule
-dataset_name: dmfc_rsg
-phase: val
-bin_width: 5
+_target_: lfads_torch.datamodules.BasicDataModule
+data_paths:
+  - ${relpath:datasets/dmfc_rsg-05ms-val.h5}
+batch_keys:
+  - behavior
+attr_keys:
+  - psth
+  - train_cond_idx
+  - valid_cond_idx
+  - train_jitter
+  - valid_jitter
 batch_size: 256
-# Name with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
-dm_ic_enc_seq_len: ${model.ic_enc_seq_len}
