@@ -17,7 +17,7 @@ class LFADSNLBDataModule(NLBDataModule):
         bin_width: int = 5,
         batch_size: int = 64,
         reshuffle_tv_seed: int = None,
-        num_workers: int = 4,
+        num_workers: int = 0,
         sv_rate: float = 0.0,
         sv_seed: int = 0,
         dm_ic_enc_seq_len: int = 0,

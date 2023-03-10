@@ -1,6 +1,5 @@
 raster_plot:
   _target_: lfads_torch.callbacks.RasterPlot
-  n_samples: 3
   log_every_n_epochs: 500
 
 trajectory_plot:

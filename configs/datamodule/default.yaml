@@ -1,9 +1,0 @@
-_target_: lfads_torch.datamodules.base.BasicDataModule
-data_paths:
-  - /snel/share/runs/PBT/paper-fix/lfadslite-testing/data_chaotic/chaotic_chaotic_rnn_inputs_2_dataset_N50_S50_1000trials
-batch_size: 256
-num_workers: 0
-sv_rate: 0.0
-sv_seed: 0
-# Name with `dm_` to avoid overlap w/ model HPS (per `pytorch_lightning==1.4.9`)
-dm_ic_enc_seq_len: ${model.ic_enc_seq_len}
