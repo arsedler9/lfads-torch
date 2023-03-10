@@ -34,6 +34,8 @@ data_paths:
 batch_size: <YOUR-BATCH-SIZE>
 ```
 
+Alternatively, if you'd like to run `lfads-torch` on datasets from the Neural Latents Benchmark, you can find download instructions and preprocessing scripts in the `nlb-lightning` repo. With `nlb-lightning` installed in your environment, you can use the datamodule and model configs provided in `lfads-torch` to train and evaluate models on these datasets.
+
 ## Model Configuration
 Next, you'll need to create a model configuration file that defines the architecture of your LFADS model at `configs/model/my_model.yaml`. We recommend starting with a copy of the `configs/model/nlb_mc_maze.yaml` file. At the least, you'll need to specify the following values in this file with the parameters of your dataset:
 - `encod_data_dim`: The `n_channels` dimension of `encod_data` from your data file.
