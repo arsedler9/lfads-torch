@@ -2,7 +2,6 @@ defaults:
   - model: nlb_mc_maze
   - datamodule: nlb_mc_maze
   - callbacks: nlb
-  - logger: default
   - _self_
 
 seed: 0
@@ -45,6 +44,11 @@ callbacks:
     logging_interval: epoch
 
 logger:
+  csv_logger:
+    _target_: pytorch_lightning.loggers.CSVLogger
+    save_dir: "csv_logs"
+    version: ""
+    name: ""
   tensorboard_logger:
     _target_: pytorch_lightning.loggers.TensorBoardLogger
     # Configure logger so PTL and ray use the same TB file.

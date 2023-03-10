@@ -2,7 +2,6 @@ defaults:
   - model: nlb_mc_maze
   - datamodule: nlb_mc_maze
   - callbacks: nlb
-  - logger: default
   - _self_
 
 seed: 0
@@ -34,6 +33,18 @@ callbacks:
   learning_rate_monitor:
     _target_: pytorch_lightning.callbacks.LearningRateMonitor
     logging_interval: epoch
+
+logger:
+  csv_logger:
+    _target_: pytorch_lightning.loggers.CSVLogger
+    save_dir: "csv_logs"
+    version: ""
+    name: ""
+  tensorboard_logger:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: "."
+    version: ""
+    name: ""
 
 posterior_sampling:
   use_best_ckpt: True
