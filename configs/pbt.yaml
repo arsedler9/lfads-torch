@@ -1,7 +1,7 @@
 defaults:
   - model: nlb_mc_maze
   - datamodule: nlb_mc_maze
-  - callbacks: nlb
+  - callbacks: default
   - _self_
 
 # Use unique initializations for better diversity
