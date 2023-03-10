@@ -10,22 +10,24 @@ logger = logging.getLogger(__name__)
 
 # ---------- OPTIONS -----------
 OVERWRITE = True
+PROJECT_STR = "lfads-torch"
+DATASET_STR = "nlb_mc_maze"
 RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
-RUNS_HOME = Path("/snel/share/runs/lfads-torch/validation")
-RUN_DIR = RUNS_HOME / "single" / RUN_TAG
-CONFIG_PATH = Path("../configs/single.yaml")
+RUN_DIR = Path("/snel/share/runs") / PROJECT_STR / DATASET_STR / "single" / RUN_TAG
 # ------------------------------
 
 # Overwrite the directory if necessary
 if RUN_DIR.exists() and OVERWRITE:
     shutil.rmtree(RUN_DIR)
 RUN_DIR.mkdir(parents=True)
+# Copy this script into the run directory
+shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 # Switch to the `RUN_DIR` and train the model
 os.chdir(RUN_DIR)
 run_model(
     overrides={
-        "datamodule": "nlb_mc_maze",
-        "model": "nlb_mc_maze",
+        "datamodule": DATASET_STR,
+        "model": DATASET_STR,
     },
-    config_path=CONFIG_PATH,
+    config_path="../configs/single.yaml",
 )

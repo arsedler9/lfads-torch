@@ -18,15 +18,13 @@ logger = logging.getLogger(__name__)
 
 # ---------- OPTIONS -----------
 OVERWRITE = True
-PROJECT_STR = 'lfads-torch'
+PROJECT_STR = "lfads-torch"
 DATASET_STR = "nlb_mc_maze"
 RUN_TAG = datetime.now().strftime("%Y%m%d") + "_examplePBT"
 RUN_DIR = Path("/snel/share/runs") / PROJECT_STR / DATASET_STR / "pbt" / RUN_TAG
 
 # ------------------------------
 
-# Set the config path
-CONFIG_PATH = "../configs/pbt.yaml"
 # Set the mandatory config overrides to select datamodule and model
 mandatory_overrides = {
     "datamodule": DATASET_STR,
@@ -44,7 +42,7 @@ shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 analysis = tune.run(
     tune.with_parameters(
         run_model,
-        config_path=CONFIG_PATH,
+        config_path="../configs/pbt.yaml",
         do_posterior_sample=False,
     ),
     metric="valid/recon_smth",
@@ -73,7 +71,7 @@ analysis = tune.run(
     scheduler=PopulationBasedTraining(
         time_attr="cur_epoch",
         perturbation_interval=25,
-        burn_in_period=100, # ramping + perturbation_interval
+        burn_in_period=100,  # ramping + perturbation_interval
         hyperparam_mutations={
             "model.lr_init": tune.loguniform(1e-5, 5e-3),
             "model.train_aug_stack.transforms.0.cd_rate": tune.uniform(0.01, 0.7),
@@ -107,7 +105,7 @@ os.chdir(best_model_dir)
 best_ckpt_dir = best_model_dir / Path(analysis.best_checkpoint.local_path).name
 run_model(
     checkpoint_dir=best_ckpt_dir,
-    config_path=CONFIG_PATH,
+    config_path="../configs/pbt.yaml",
     do_train=False,
     overrides=mandatory_overrides,
 )
