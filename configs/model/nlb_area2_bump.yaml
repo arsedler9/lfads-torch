@@ -72,6 +72,8 @@ lr_init: 4.0e-3
 lr_stop: 1.0e-5
 lr_decay: 0.95
 lr_patience: 6
+lr_adam_beta1: 0.9
+lr_adam_beta2: 0.999
 lr_adam_epsilon: 1.0e-7
 lr_scheduler: True
 

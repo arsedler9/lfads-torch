@@ -46,6 +46,8 @@ class LFADS(pl.LightningModule):
         lr_stop: float,
         lr_decay: float,
         lr_patience: int,
+        lr_adam_beta1: float,
+        lr_adam_beta2: float,
         lr_adam_epsilon: float,
         weight_decay: float,
         l2_start_epoch: int,
@@ -162,6 +164,7 @@ class LFADS(pl.LightningModule):
         optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=hps.lr_init,
+            betas=(hps.lr_adam_beta1, hps.lr_adam_beta2),
             eps=hps.lr_adam_epsilon,
             weight_decay=hps.weight_decay,
         )
