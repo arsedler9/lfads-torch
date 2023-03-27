@@ -30,7 +30,8 @@ mandatory_overrides = {
     "datamodule": DATASET_STR,
     "model": DATASET_STR,
     "logger.wandb_logger.project": PROJECT_STR,
-    "logger.wandb_logger.tags.0": RUN_TAG,
+    "logger.wandb_logger.tags.1": DATASET_STR,
+    "logger.wandb_logger.tags.2": RUN_TAG,
 }
 # Overwrite the directory if necessary
 if RUN_DIR.exists() and OVERWRITE:

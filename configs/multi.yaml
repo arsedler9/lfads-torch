@@ -60,9 +60,9 @@ logger:
     _target_: pytorch_lightning.loggers.WandbLogger
     project: null # Overwrite with PROJECT_STR in the run script
     tags:
-      - null # Overwrite with RUN_TAG in the run script
       - multi
-      - ${datamodule.dataset_name}
+      - null # Overwrite with DATASET_STR in the run script
+      - null # Overwrite with RUN_TAG in the run script
 
 posterior_sampling:
   use_best_ckpt: True
