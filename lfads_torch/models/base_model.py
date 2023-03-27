@@ -245,14 +245,20 @@ class LFADS(pl.LightningModule):
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl))
         # Compute the reconstruction accuracy, if applicable
-        output_means = [
-            self.recon[s].compute_means(output[s].output_params) for s in sessions
-        ]
-        r2 = torch.mean(
-            torch.stack(
-                [r2_score(om, batch[s].truth) for om, s in zip(output_means, sessions)]
+        if batch[0].truth.numel() > 0:
+            output_means = [
+                self.recon[s].compute_means(output[s].output_params) for s in sessions
+            ]
+            r2 = torch.mean(
+                torch.stack(
+                    [
+                        r2_score(om, batch[s].truth)
+                        for om, s in zip(output_means, sessions)
+                    ]
+                )
             )
-        )
+        else:
+            r2 = float("nan")
         # Compute batch sizes for logging
         batch_sizes = [len(batch[s].encod_data) for s in sessions]
         # Log per-session metrics
@@ -329,6 +335,7 @@ class LFADS(pl.LightningModule):
                 "hp/l2_con_scale": self.hparams.l2_con_scale,
                 "hp/kl_co_scale": self.hparams.kl_co_scale,
                 "hp/kl_ic_scale": self.hparams.kl_ic_scale,
+                "hp/weight_decay": self.hparams.weight_decay,
             }
         )
         # Log CD rate if CD is being used
