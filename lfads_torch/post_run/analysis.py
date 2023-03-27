@@ -6,6 +6,7 @@ import h5py
 import torch
 from tqdm import tqdm
 
+from ..datamodules import reshuffle_train_valid
 from ..tuples import SessionOutput
 from ..utils import send_batch_to_device, transpose_lists
 
@@ -55,7 +56,19 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
         # Give each session a unique file path
         sess_fname = f"{filename.stem}_sess{s}{filename.suffix}"
         # Copy data file for easy access to original data and indices
-        shutil.copyfile(datamodule.hparams.data_paths[s], sess_fname)
+        dhps = datamodule.hparams
+        if dhps.reshuffle_tv_seed is not None:
+            # If the data was shuffled, shuffle it when copying
+            with h5py.File(dhps.data_paths[s]) as h5file:
+                data_dict = {k: v[()] for k, v in h5file.items()}
+            data_dict = reshuffle_train_valid(
+                data_dict, dhps.reshuffle_tv_seed, dhps.reshuffle_tv_ratio
+            )
+            with h5py.File(sess_fname, "w") as h5file:
+                for k, v in data_dict.items():
+                    h5file.create_dataset(k, data=v)
+        else:
+            shutil.copyfile(datamodule.hparams.data_paths[s], sess_fname)
         for split in dataloaders.keys():
             # Compute average model outputs for each session and then recombine batches
             logger.info(f"Running posterior sampling on Session {s} {split} data.")
