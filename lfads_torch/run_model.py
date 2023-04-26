@@ -30,8 +30,8 @@ def run_model(
     # Compose the train config with properly formatted overrides
     config_path = Path(config_path)
     overrides = [f"{k}={v}" for k, v in flatten(overrides).items()]
-    with hydra.initialize(
-        config_path=config_path.parent,
+    with hydra.initialize_config_dir(
+        config_dir=str(config_path.parent),
         job_name="run_model",
         version_base="1.1",
     ):

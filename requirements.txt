@@ -1,7 +1,9 @@
-torch
+--index-url https://download.pytorch.org/whl/cu102
+torch==1.12.0+cu102
 torchmetrics==0.7.2
 pytorch-lightning==1.6.0
-hydra-core
+hydra-core==1.3.0
+scikit-learn
 h5py
 pre-commit
 black
