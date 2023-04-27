@@ -104,7 +104,7 @@ datamodule:
 pbt:
   metric: valid/recon_smth
   resources_per_trial:
-    cpu: 3
+    cpu: 2
     gpu: 0.5
   num_samples: 20
   perturbation_interval: 25
