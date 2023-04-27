@@ -106,7 +106,7 @@ pbt:
   resources_per_trial:
     cpu: 2
     gpu: 0.5
-  num_samples: 20
+  num_samples: 16
   perturbation_interval: 25
   burn_in_period: 100 # ramping + perturbation_interval
   quantile_fraction: 0.25
