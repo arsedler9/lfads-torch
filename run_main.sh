@@ -11,10 +11,12 @@ resultpath=$(neurocaas-contrib workflow get-resultpath-tmp)
 
 echo "--Running LFADS--"
 source activate lfads-torch
-python /home/ubuntu/lfads-torch/scripts/run_single.py $datapath $configpath $resultpath
+# python /home/ubuntu/lfads-torch/scripts/run_single.py $datapath $configpath $resultpath
+python /home/ubuntu/lfads-torch/scripts/run_pbt.py $datapath $configpath $resultpath
 source deactivate
 
 echo "--Writing results--"
-neurocaas-contrib workflow put-result -r $resultpath/lfads_output_sess0.h5
+# neurocaas-contrib workflow put-result -r $resultpath/lfads_output_sess0.h5
+neurocaas-contrib workflow put-result -r $resultpath/best_model
 
 source deactivate
