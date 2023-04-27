@@ -1,4 +1,6 @@
 import multiprocessing
+import os
+import shutil
 from glob import glob
 
 import pandas as pd
@@ -79,3 +81,29 @@ def read_pbt_fitlog(pbt_dir):
         fit_dfs[i] = df
     fit_df = pd.concat(fit_dfs).reset_index(drop=True)
     return fit_df
+
+
+def cleanup_best_model(model_dir):
+    """Deletes extra files in the best_model folder after PBT"""
+    # Find the most recently created checkpoint file and move it
+    ckpt_files = glob(model_dir + "/checkpoint_epoch=*/tune.ckpt")
+    ckpt_file = sorted(ckpt_files, key=os.path.getctime)[-1]
+    shutil.copyfile(ckpt_file, model_dir + "/model.ckpt")
+    # Delete irrelevant / confusing files
+    cleanup_files = glob(model_dir + "/events.out.tfevents*")
+    cleanup_files.extend(glob(model_dir + "/checkpoint_*"))
+    cleanup_files.extend(
+        [
+            model_dir + "/csv_logs",
+            model_dir + "/hparams.yaml",
+            model_dir + "/params.json",
+            model_dir + "/params.pkl",
+            model_dir + "/progress.csv",
+            model_dir + "/result.json",
+        ]
+    )
+    for f in cleanup_files:
+        if os.path.isdir(f):
+            shutil.rmtree(f)
+        else:
+            os.remove(f)

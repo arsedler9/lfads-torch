@@ -11,7 +11,7 @@ from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.suggest.basic_variant import BasicVariantGenerator
 
 from lfads_torch.run_model import run_model
-from lfads_torch.utils import read_pbt_fitlog
+from lfads_torch.utils import cleanup_best_model, read_pbt_fitlog
 
 logger = logging.getLogger(__name__)
 
@@ -78,3 +78,5 @@ run_model(
 # Assemble training / hyperparameter log
 fit_df = read_pbt_fitlog(resultpath)
 fit_df.to_csv(best_model_dir / "fitlog.csv")
+# Remove extra files
+cleanup_best_model(best_model_dir)
