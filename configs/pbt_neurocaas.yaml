@@ -108,37 +108,33 @@ pbt:
     gpu: 0.5
   num_samples: 16
   perturbation_interval: 25
-  burn_in_period: 100 # ramping + perturbation_interval
+  burn_in_period: 105 # ramping + perturbation_interval
   quantile_fraction: 0.25
   resample_probability: 0.25
   hps:
     model.lr_init:
       init_range: [4.0e-3, 4.0e-3]
-      resamp_range: [1.0e-5, 5.0e-3]
+      resamp_range: [1.0e-4, 5.0e-3]
       dist: loguniform
     model.train_aug_stack.transforms.0.cd_rate:
       init_range: [0.5, 0.5]
       resamp_range: [0.01, 0.7]
       dist: uniform
     model.dropout_rate:
-      init_range: [0.0, 0.6]
-      resamp_range: [0.0, 0.7]
+      init_range: [0.1, 0.1]
+      resamp_range: [0.0, 0.2]
       dist: uniform
-    model.l2_gen_scale:
-      init_range: [1.0e-4, 1.0]
-      resamp_range: [1.0e-4, 1.0]
-      dist: loguniform
-    model.l2_con_scale:
-      init_range: [1.0e-4, 1.0]
-      resamp_range: [1.0e-4, 1.0]
-      dist: loguniform
     model.kl_co_scale:
-      init_range: [1.0e-6, 1.0e-4]
-      resamp_range: [1.0e-6, 1.0e-4]
+      init_range: [1.0e-6, 1.0e-3]
+      resamp_range: [1.0e-6, 1.0e-3]
       dist: loguniform
     model.kl_ic_scale:
-      init_range: [1.0e-5, 1.0e-3]
-      resamp_range: [1.0e-5, 1.0e-3]
+      init_range: [1.0e-6, 1.0e-3]
+      resamp_range: [1.0e-6, 1.0e-3]
+      dist: loguniform
+    model.weight_decay:
+      init_range: [1.0e-10, 1.0e-2]
+      resamp_range: [1.0e-10, 1.0e-2]
       dist: loguniform
 
 trainer:

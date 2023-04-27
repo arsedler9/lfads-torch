@@ -1,3 +1,7 @@
+import multiprocessing
+from glob import glob
+
+import pandas as pd
 import torch
 
 from .tuples import SessionBatch
@@ -57,3 +61,21 @@ def send_batch_to_device(batch, device):
             )
 
     return send_to_device(batch)
+
+
+def read_pbt_fitlog(pbt_dir):
+    """Compiles fitlogs of all PBT workers in a directory into a single DataFrame"""
+    worker_logs = sorted(glob(pbt_dir + "/run_model_*/csv_logs/version_*/metrics.csv"))
+    with multiprocessing.Pool(8) as p:
+        fit_dfs = p.map(pd.read_csv, worker_logs)
+    for i, df in enumerate(fit_dfs):
+        df = (
+            df[~df.epoch.isnull()]
+            .dropna(axis=1, how="all")
+            .ffill()
+            .drop_duplicates(subset="epoch", keep="last")
+        )
+        df["worker_id"] = i
+        fit_dfs[i] = df
+    fit_df = pd.concat(fit_dfs).reset_index(drop=True)
+    return fit_df
