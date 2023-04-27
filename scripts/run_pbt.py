@@ -79,4 +79,4 @@ run_model(
 fit_df = read_pbt_fitlog(resultpath)
 fit_df.to_csv(best_model_dir / "fitlog.csv")
 # Remove extra files
-cleanup_best_model(best_model_dir)
+cleanup_best_model(str(best_model_dir))
