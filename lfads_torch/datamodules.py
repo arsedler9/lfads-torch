@@ -75,8 +75,8 @@ def attach_tensors(datamodule, data_dicts: list[dict], extra_keys: list[str] = [
             )
 
         # Store the data for each session
-        all_train_data.append(create_session_batch("train"), extra_keys)
-        all_valid_data.append(create_session_batch("valid"), extra_keys)
+        all_train_data.append(create_session_batch("train", extra_keys))
+        all_valid_data.append(create_session_batch("valid", extra_keys))
         if "test_encod_data" in data_dict:
             all_test_data.append(create_session_batch("test"))
     # Store the datasets on the datamodule
