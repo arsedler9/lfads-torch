@@ -33,6 +33,8 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
     # Set up the dataloaders
     datamodule.setup()
     pred_dls = datamodule.predict_dataloader()
+    # Set the model to evaluation mode
+    model.eval()
 
     # Function to run posterior sampling for a single session at a time
     def run_ps_batch(s, batch):
@@ -72,7 +74,10 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
         for split in dataloaders.keys():
             # Compute average model outputs for each session and then recombine batches
             logger.info(f"Running posterior sampling on Session {s} {split} data.")
-            post_means = [run_ps_batch(s, batch) for batch in tqdm(dataloaders[split])]
+            with torch.no_grad():
+                post_means = [
+                    run_ps_batch(s, batch) for batch in tqdm(dataloaders[split])
+                ]
             post_means = SessionOutput(
                 *[torch.cat(o).cpu().numpy() for o in transpose_lists(post_means)]
             )
