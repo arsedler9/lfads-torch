@@ -225,3 +225,19 @@ class TrajectoryPlot(pl.Callback):
                 fig,
                 trainer.global_step,
             )
+
+
+class TestEval(pl.Callback):
+    def on_validation_epoch_end(self, trainer, pl_module):
+        test_batch = send_batch_to_device(
+            trainer.datamodule.test_data[0][0], pl_module.device
+        )
+        _, esl, edd = test_batch.encod_data.shape
+        test_output = pl_module(test_batch, output_means=True)[0]
+        test_nll = torch.nn.functional.poisson_nll_loss(
+            test_output.output_params[:, :esl, :edd],
+            test_batch.encod_data,
+            log_input=False,
+            full=True,
+        )
+        pl_module.log("test/recon", test_nll)

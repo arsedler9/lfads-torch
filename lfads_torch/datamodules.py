@@ -12,7 +12,7 @@ from .tuples import SessionBatch
 MANDATORY_KEYS = {
     "train": ["encod_data", "recon_data"],
     "valid": ["encod_data", "recon_data"],
-    "test": ["encod_data", "recon_data"],
+    "test": ["encod_data"],
 }
 
 
@@ -26,12 +26,17 @@ def attach_tensors(datamodule, data_dicts: list[dict], extra_keys: list[str] = [
     all_train_data, all_valid_data, all_test_data = [], [], []
     for data_dict in data_dicts:
 
-        def create_session_batch(prefix):
-            # Ensure that the data dict has all of the required keys TODO: Sparse?
+        def create_session_batch(prefix, extra_keys=[]):
+            # Ensure that the data dict has all of the required keys
             assert all(f"{prefix}_{key}" in data_dict for key in MANDATORY_KEYS[prefix])
+            # Load the encod_data
             encod_data = to_tensor(data_dict[f"{prefix}_encod_data"])
-            recon_data = to_tensor(data_dict[f"{prefix}_recon_data"])
             n_samps, n_steps, _ = encod_data.shape
+            # Load the recon_data
+            if f"{prefix}_recon_data" in data_dict:
+                recon_data = to_tensor(data_dict[f"{prefix}_recon_data"])
+            else:
+                recon_data = torch.zeros(n_samps, 0, 0)
             if hps.sv_rate > 0:
                 # Create sample validation mask # TODO: Sparse and use complement?
                 bern_p = 1 - hps.sv_rate if prefix != "test" else 1.0
@@ -70,8 +75,8 @@ def attach_tensors(datamodule, data_dicts: list[dict], extra_keys: list[str] = [
             )
 
         # Store the data for each session
-        all_train_data.append(create_session_batch("train"))
-        all_valid_data.append(create_session_batch("valid"))
+        all_train_data.append(create_session_batch("train", extra_keys))
+        all_valid_data.append(create_session_batch("valid", extra_keys))
         if "test_encod_data" in data_dict:
             all_test_data.append(create_session_batch("test"))
     # Store the datasets on the datamodule
