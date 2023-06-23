@@ -15,7 +15,8 @@ python /home/ubuntu/lfads-torch/scripts/run_pbt.py $datapath $configpath $result
 source deactivate
 
 echo "--Writing results--"
-zip -r autolfads.zip $resultpath/best_model
+cd $resultpath/best_model
+zip -r autolfads.zip *
 neurocaas-contrib workflow put-result -r autolfads.zip
 
 source deactivate
