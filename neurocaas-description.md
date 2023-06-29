@@ -56,7 +56,7 @@ Starting from the demo config file, you'll need to edit the following fields to 
 
 The following hyperparameters are also frequently changed, in order of importance:
 
-- `pbt.hps`: The ranges from which PBT should initialize and resample learning ranges and other regularization hyperparameters.
+- `pbt.hps`: The ranges from which PBT should initialize and resample learning rates and regularization hyperparameters.
 - `trainer.max_epochs`: The total number of epochs to train the model.
 - `pbt.perturbation_interval`: The number of epochs between successive perturbations of the population.
 - `pbt.burn_in_period`: The number of epochs to wait before the first hyperparameter perturbation.
