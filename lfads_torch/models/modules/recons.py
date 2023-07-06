@@ -58,10 +58,11 @@ class PoissonBPS(Poisson):
         nll_null = F.poisson_nll_loss(
             torch.mean(data, dim=(0, 1), keepdim=True),
             data,
+            log_input=False,
             full=True,
             reduction="none",
         )
-        return (nll_model - nll_null) / (torch.log(2) * torch.mean(data))
+        return (nll_model - nll_null) / (torch.log(torch.tensor(2)) * torch.mean(data))
 
 
 class MSE(Reconstruction):
