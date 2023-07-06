@@ -233,11 +233,9 @@ class TestEval(pl.Callback):
             trainer.datamodule.test_data[0][0], pl_module.device
         )
         _, esl, edd = test_batch.encod_data.shape
-        test_output = pl_module(test_batch, output_means=True)[0]
-        test_nll = torch.nn.functional.poisson_nll_loss(
-            test_output.output_params[:, :esl, :edd],
+        test_output = pl_module(test_batch, output_means=False)[0]
+        test_recon = pl_module.recon[0].compute_loss(
             test_batch.encod_data,
-            log_input=False,
-            full=True,
+            test_output.output_params[:, :esl, :edd],
         )
-        pl_module.log("test/recon", test_nll)
+        pl_module.log("test/recon", test_recon)
