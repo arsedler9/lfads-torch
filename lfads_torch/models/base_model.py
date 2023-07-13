@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from ..metrics import ExpSmoothedMetric, r2_score
+from ..metrics import ExpSmoothedMetric, r2_score, regional_bits_per_spike
 from ..tuples import SessionBatch, SessionOutput
 from ..utils import transpose_lists
 from .modules import augmentations
@@ -223,6 +223,21 @@ class LFADS(pl.LightningModule):
             aug_stack.process_losses(ra, batch[s], self.log, split)
             for ra, s in zip(recon_all, sessions)
         ]
+        # Compute bits per spike
+        sess_bps, sess_co_bps, sess_fp_bps = transpose_lists(
+            [
+                regional_bits_per_spike(
+                    output[s].output_params[..., 0],
+                    batch[s].recon_data,
+                    hps.encod_data_dim,
+                    hps.encod_seq_len,
+                )
+                for s in sessions
+            ]
+        )
+        bps = torch.mean(torch.stack(sess_bps))
+        co_bps = torch.mean(torch.stack(sess_co_bps))
+        fp_bps = torch.mean(torch.stack(sess_fp_bps))
         # Aggregate the heldout cost for logging
         if not hps.recon_reduce_mean:
             recon_all = [torch.sum(ra, dim=(1, 2)) for ra in recon_all]
@@ -274,6 +289,9 @@ class LFADS(pl.LightningModule):
         metrics = {
             f"{split}/loss": loss,
             f"{split}/recon": recon,
+            f"{split}/bps": max(bps, -1.0),
+            f"{split}/co_bps": max(co_bps, -1.0),
+            f"{split}/fp_bps": max(fp_bps, -1.0),
             f"{split}/r2": r2,
             f"{split}/wt_l2": l2,
             f"{split}/wt_l2/ramp": l2_ramp,
