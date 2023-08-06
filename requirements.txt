@@ -7,6 +7,6 @@ pre-commit
 black
 isort
 flake8
-ray[tune]==1.13.0
+ray[tune]==2.1.0
 matplotlib
 wandb
