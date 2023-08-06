@@ -47,7 +47,7 @@ class DecoderCell(nn.Module):
             hps.con_dim,
             hps.co_dim,
             hps.co_dim,
-            hps.co_dim,
+            hps.co_dim + hps.ext_input_dim,
             hps.fac_dim,
         ]
         # Keep track of the input dimensions
