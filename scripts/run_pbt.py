@@ -10,8 +10,7 @@ from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.suggest.basic_variant import BasicVariantGenerator
 
 from lfads_torch.run_model import run_model
-
-# from ray.tune.stopper import ExperimentPlateauStopper
+from lfads_torch.extensions.tune import PercentageChangeStopper
 
 
 logger = logging.getLogger(__name__)
@@ -49,12 +48,14 @@ analysis = tune.run(
     metric="valid/recon_smth",
     mode="min",
     name=RUN_DIR.name,
-    # stop=ExperimentPlateauStopper(
-    #     metric="valid/recon_smth",
-    #     std=1e-5,
-    #     top=10,
-    #     patience=100,
-    # ),
+    stop=PercentageChangeStopper(
+        metric="valid/recon_smth",
+        patience=4,
+        min_percent_improvement=.0005,
+        ramp_up=80,
+        pert_int=25,
+        num_trials=16
+    ),
     config={
         **mandatory_overrides,
         "model.lr_init": tune.choice([4e-3]),
