@@ -268,8 +268,17 @@ class BinaryTournamentPBT(PopulationBasedTraining):
             return losers, winners
 
 class PercentageChangeStopper(Stopper):
-    """Stops the experiment early when the best score has not improved by a specified amount within
-    a specified number of intermediate results.
+    """Stops the hyperparameter search experiment early when the best score has not improved by a specified amount within
+    a specified number of PBT generations.
+
+    Arguments:
+        metric: performance metric of which to measure improvement
+        patience: number of PBT generations over which to look back when measuring improvement
+        min_percent_improvement: improvement threshold for stopping the Ray Tune experiment
+        ramp_up: number of initial training iterations to ignore when computing improvement
+        pert_int: perturbation interval in PBT; number of training iterations per generation
+        num_trials: number of trials in Ray Tune experiment
+
     """
     def __init__(
         self,
@@ -279,9 +288,17 @@ class PercentageChangeStopper(Stopper):
         ramp_up: int = 80,
         pert_int: int = 25,
         num_trials: int = 16
-        #params
     ):
-        #TODO catch errors for params
+        if patience <= 0:
+            raise ValueError("Patience should be a positive integer.")
+        if not 0 <= min_percent_improvement < 1:
+            raise ValueError("min_percent_improvement should be in the range [0, 1).")
+        if ramp_up <= 0:
+            raise ValueError("Ramp-up should be a positive integer.")
+        if pert_int <= 0:
+            raise ValueError("pert_int should be a positive integer.")
+        if num_trials <= 0:
+            raise ValueError("num_trials should be a positive integer.")
         
         self._metric = metric
         self._patience = patience
