@@ -1,9 +1,12 @@
 import copy
 import logging
+import multiprocessing
 import random
+from glob import glob
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 from ray.air._internal.checkpoint_manager import CheckpointStorage
 from ray.tune.execution import trial_runner
 from ray.tune.experiment import Trial
@@ -11,6 +14,24 @@ from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.search.sample import Domain
 
 logger = logging.getLogger(__name__)
+
+
+def read_pbt_fitlog(pbt_dir, n_processes=8):
+    """Compiles fitlogs of all PBT workers in a directory into a single DataFrame"""
+    worker_logs = sorted(glob(pbt_dir + "/run_model_*/csv_logs/version_*/metrics.csv"))
+    with multiprocessing.Pool(n_processes) as p:
+        fit_dfs = p.map(pd.read_csv, worker_logs)
+    for i, df in enumerate(fit_dfs):
+        df = (
+            df[~df.epoch.isnull()]
+            .dropna(axis=1, how="all")
+            .ffill()
+            .drop_duplicates(subset="epoch", keep="last")
+        )
+        df["worker_id"] = i
+        fit_dfs[i] = df
+    fit_df = pd.concat(fit_dfs).reset_index(drop=True)
+    return fit_df
 
 
 def _explore(
