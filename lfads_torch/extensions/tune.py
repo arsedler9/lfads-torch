@@ -4,6 +4,7 @@ import multiprocessing
 import random
 from glob import glob
 from typing import Callable, Dict, List, Optional, Tuple, Union
+from collections import deque
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ from ray.tune.execution import trial_runner
 from ray.tune.experiment import Trial
 from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.search.sample import Domain
+from ray.tune.stopper import Stopper
 
 logger = logging.getLogger(__name__)
 
@@ -264,3 +266,58 @@ class BinaryTournamentPBT(PopulationBasedTraining):
                     winners.append(t2)
                     losers.append(t1)
             return losers, winners
+
+class PercentageChangeStopper(Stopper):
+    """Stops the experiment early when the best score has not improved by a specified amount within
+    a specified number of intermediate results.
+    """
+    def __init__(
+        self,
+        metric: str = "valid/recon_smth",
+        patience: int = 4,
+        min_percent_improvement: float = .0005,
+        ramp_up: int = 80,
+        pert_int: int = 25,
+        num_trials: int = 16
+        #params
+    ):
+        #TODO catch errors for params
+        
+        self._metric = metric
+        self._patience = patience
+        self._min_percent_improvement = min_percent_improvement
+        self._percent_improvement = 0.0
+        self._best_scores = deque(maxlen=patience)
+        self._ramp_up = ramp_up
+        self._current_gen = 0
+        self._pert_int = pert_int
+        self._scores_by_generation = {}
+        self._num_trials = num_trials
+        self._last_completed_gen = -1
+
+    def __call__(self, trial_id, result):
+        effectiveGen = np.floor((result["training_iteration"]-1-self._ramp_up)/self._pert_int)
+
+        if effectiveGen >= 0: #is done ramping up
+            if effectiveGen in self._scores_by_generation: #not first in generation
+                self._scores_by_generation[effectiveGen].append(result[self._metric])
+            else: #first in generation
+                self._scores_by_generation[effectiveGen] = [result[self._metric]]
+           
+            if len(self._scores_by_generation[self._current_gen]) == self._num_trials*self._pert_int:
+                
+                best_score = np.min(self._scores_by_generation[self._current_gen])
+                self._last_completed_gen = self._current_gen
+                self._current_gen += 1
+                #check/update conditions, ask stop_all if we stop
+                self._best_scores.append(best_score)
+                self._percent_improvement = (
+                    self._best_scores[0] - np.min(self._best_scores)
+                ) / np.mean(np.abs(self._best_scores))
+        return self.stop_all()
+
+    def failed_to_improve(self):
+        return self._percent_improvement <= self._min_percent_improvement
+        
+    def stop_all(self):
+        return self.failed_to_improve() and self._last_completed_gen >= self._patience
