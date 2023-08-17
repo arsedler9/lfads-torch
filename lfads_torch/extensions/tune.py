@@ -2,9 +2,9 @@ import copy
 import logging
 import multiprocessing
 import random
+from collections import deque
 from glob import glob
 from typing import Callable, Dict, List, Optional, Tuple, Union
-from collections import deque
 
 import numpy as np
 import pandas as pd
@@ -267,74 +267,69 @@ class BinaryTournamentPBT(PopulationBasedTraining):
                     losers.append(t1)
             return losers, winners
 
-class PercentageChangeStopper(Stopper):
-    """Stops the hyperparameter search experiment early when the best score has not improved by a specified amount within
-    a specified number of PBT generations.
 
-    Arguments:
-        metric: performance metric of which to measure improvement
-        patience: number of PBT generations over which to look back when measuring improvement
-        min_percent_improvement: improvement threshold for stopping the Ray Tune experiment
-        ramp_up: number of initial training iterations to ignore when computing improvement
-        pert_int: perturbation interval in PBT; number of training iterations per generation
-        num_trials: number of trials in Ray Tune experiment
-
-    """
+class ImprovementRatioStopper(Stopper):
     def __init__(
         self,
+        num_trials: int,
+        perturbation_interval: int,
+        burn_in_period: int,
         metric: str = "valid/recon_smth",
         patience: int = 4,
-        min_percent_improvement: float = .0005,
-        ramp_up: int = 80,
-        pert_int: int = 25,
-        num_trials: int = 16
+        min_improvement_ratio: float = 5e-4,
     ):
-        if patience <= 0:
-            raise ValueError("Patience should be a positive integer.")
-        if not 0 <= min_percent_improvement < 1:
-            raise ValueError("min_percent_improvement should be in the range [0, 1).")
-        if ramp_up <= 0:
-            raise ValueError("Ramp-up should be a positive integer.")
-        if pert_int <= 0:
-            raise ValueError("pert_int should be a positive integer.")
-        if num_trials <= 0:
-            raise ValueError("num_trials should be a positive integer.")
-        
+        """Stops the hyperparameter search experiment early when the best
+        score has not improved by a specified amount within a specified
+        number of PBT generations.
+
+        Parameters
+        ----------
+        num_trials : int, optional
+            Number of trials in the population
+        perturbation_interval : int, optional
+            Number of epochs per PBT generation
+        burn_in_period : int, optional
+            Number of initial epochs to ignore when computing improvement
+        metric : str, optional
+            Value by which to measure improvement, by default "valid/recon_smth"
+        patience : int, optional
+            Number of past generations to consider for improvement, by default 4
+        min_improvement_ratio : float, optional
+            Improvement threshold for stopping the experiment, by default .0005
+        """
+        self._num_trials = num_trials
+        self._perturbation_interval = perturbation_interval
+        self._burn_in_period = burn_in_period
         self._metric = metric
         self._patience = patience
-        self._min_percent_improvement = min_percent_improvement
-        self._percent_improvement = 0.0
+        self._min_improvement_ratio = min_improvement_ratio
+        self._current_scores = {}
         self._best_scores = deque(maxlen=patience)
-        self._ramp_up = ramp_up
-        self._current_gen = 0
-        self._pert_int = pert_int
-        self._scores_by_generation = {}
-        self._num_trials = num_trials
-        self._last_completed_gen = -1
 
     def __call__(self, trial_id, result):
-        effectiveGen = np.floor((result["training_iteration"]-1-self._ramp_up)/self._pert_int)
+        epochs_after_burn_in = result["cur_epoch"] + 1 - self._burn_in_period
+        # Don't do anything before the last burn-in epoch
+        if epochs_after_burn_in < 0:
+            return False
+        # Only record data at perturbation intervals
+        if bool(epochs_after_burn_in % self._perturbation_interval):
+            return False
+        # Store the score of the current trial
+        self._current_scores[trial_id] = result[self._metric]
+        # If we have all of the scores, record the best
+        if len(self._current_scores) == self._num_trials:
+            self._best_scores.append(min(self._current_scores.values()))
+            self._current_scores = {}
+            return self.stop_all()
+        else:
+            return False
 
-        if effectiveGen >= 0: #is done ramping up
-            if effectiveGen in self._scores_by_generation: #not first in generation
-                self._scores_by_generation[effectiveGen].append(result[self._metric])
-            else: #first in generation
-                self._scores_by_generation[effectiveGen] = [result[self._metric]]
-           
-            if len(self._scores_by_generation[self._current_gen]) == self._num_trials*self._pert_int:
-                
-                best_score = np.min(self._scores_by_generation[self._current_gen])
-                self._last_completed_gen = self._current_gen
-                self._current_gen += 1
-                #check/update conditions, ask stop_all if we stop
-                self._best_scores.append(best_score)
-                self._percent_improvement = (
-                    self._best_scores[0] - np.min(self._best_scores)
-                ) / np.mean(np.abs(self._best_scores))
-        return self.stop_all()
-
-    def failed_to_improve(self):
-        return self._percent_improvement <= self._min_percent_improvement
-        
     def stop_all(self):
-        return self.failed_to_improve() and self._last_completed_gen >= self._patience
+        # If we have not reached `patience` generations, do not stop
+        if len(self._best_scores) < self._patience:
+            return False
+        # Compute current improvement ratio and decide whether to stop
+        improvement_ratio = (
+            self._best_scores[0] - np.min(self._best_scores)
+        ) / np.mean(np.abs(self._best_scores))
+        return improvement_ratio <= self._min_improvement_ratio

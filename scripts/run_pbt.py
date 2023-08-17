@@ -9,9 +9,8 @@ from ray.tune import CLIReporter
 from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.suggest.basic_variant import BasicVariantGenerator
 
+from lfads_torch.extensions.tune import ImprovementRatioStopper
 from lfads_torch.run_model import run_model
-from lfads_torch.extensions.tune import PercentageChangeStopper
-
 
 logger = logging.getLogger(__name__)
 
@@ -39,22 +38,26 @@ RUN_DIR.mkdir(parents=True)
 # Copy this script into the run directory
 shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 # Run the hyperparameter search
+metric = "valid/recon_smth"
+perturbation_interval = 25
+burn_in_period = 80 + 25  # ramping + perturbation_interval
+num_trials = 20
 analysis = tune.run(
     tune.with_parameters(
         run_model,
         config_path="../configs/pbt.yaml",
         do_posterior_sample=False,
     ),
-    metric="valid/recon_smth",
+    metric=metric,
     mode="min",
     name=RUN_DIR.name,
-    stop=PercentageChangeStopper(
-        metric="valid/recon_smth",
+    stop=ImprovementRatioStopper(
+        num_trials=num_trials,
+        perturbation_interval=perturbation_interval,
+        burn_in_period=burn_in_period,
+        metric=metric,
         patience=4,
-        min_percent_improvement=.0005,
-        ramp_up=80,
-        pert_int=25,
-        num_trials=16
+        min_improvement_ratio=5e-4,
     ),
     config={
         **mandatory_overrides,
@@ -67,13 +70,13 @@ analysis = tune.run(
         "model.kl_ic_scale": tune.loguniform(1e-5, 1e-3),
     },
     resources_per_trial=dict(cpu=3, gpu=0.5),
-    num_samples=20,
+    num_samples=num_trials,
     local_dir=RUN_DIR.parent,
     search_alg=BasicVariantGenerator(random_state=0),
     scheduler=PopulationBasedTraining(
         time_attr="cur_epoch",
-        perturbation_interval=25,
-        burn_in_period=100,  # ramping + perturbation_interval
+        perturbation_interval=perturbation_interval,
+        burn_in_period=burn_in_period,
         hyperparam_mutations={
             "model.lr_init": tune.loguniform(1e-5, 5e-3),
             "model.train_aug_stack.transforms.0.cd_rate": tune.uniform(0.01, 0.7),
@@ -93,7 +96,7 @@ analysis = tune.run(
     keep_checkpoints_num=1,
     verbose=1,
     progress_reporter=CLIReporter(
-        metric_columns=["valid/recon_smth", "cur_epoch"],
+        metric_columns=[metric, "cur_epoch"],
         sort_by_metric=True,
     ),
     trial_dirname_creator=lambda trial: str(trial),
