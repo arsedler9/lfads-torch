@@ -60,7 +60,7 @@ class AutoregressiveMultivariateNormal(nn.Module):
     def log_prob(self, sample):
         # Compute alpha and process variance
         alphas = torch.exp(-1.0 / torch.exp(self.logtaus))
-        logpvars = self.lognvars - torch.log(1 - alphas ** 2)
+        logpvars = self.lognvars - torch.log(1 - alphas**2)
         # Create autocorrelative transformation
         transform = AffineTransform(loc=0, scale=alphas)
         # Align previous samples and compute means and stddevs

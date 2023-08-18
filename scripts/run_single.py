@@ -1,10 +1,7 @@
-import logging
 import os
 import sys
 
 from lfads_torch.run_model import run_model
-
-logger = logging.getLogger(__name__)
 
 # Get path arguments provided by NeuroCAAS
 _, datapath, configpath, resultpath = sys.argv

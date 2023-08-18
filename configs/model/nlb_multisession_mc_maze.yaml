@@ -1,4 +1,4 @@
-_target_: lfads_torch.models.base_model.LFADS
+_target_: lfads_torch.model.LFADS
 
 # --------- architecture --------- #
 encod_data_dim: ${model.fac_dim}
@@ -44,36 +44,30 @@ readout:
 
 # --------- augmentation --------- #
 train_aug_stack:
-  _target_: lfads_torch.models.modules.augmentations.AugmentationStack
+  _target_: lfads_torch.modules.augmentations.AugmentationStack
   transforms:
-    - _target_: lfads_torch.models.modules.augmentations.CoordinatedDropout
+    - _target_: lfads_torch.modules.augmentations.CoordinatedDropout
       cd_rate: 0.3 # sampled
       cd_pass_rate: 0.0
       ic_enc_seq_len: ${model.ic_enc_seq_len}
   batch_order: [0]
   loss_order: [0]
 infer_aug_stack:
-  _target_: lfads_torch.models.modules.augmentations.AugmentationStack
-  transforms:
-    - _target_: lfads_torch.models.modules.augmentations.IgnoreNaNLoss
-      encod_data_dim: ${model.encod_data_dim}
-      encod_seq_len: ${model.encod_seq_len}
-      scale_by_quadrant: False
-  loss_order: [0]
+  _target_: lfads_torch.modules.augmentations.AugmentationStack
 
 # --------- priors / posteriors --------- #
 reconstruction:
-  - _target_: lfads_torch.models.modules.recons.Poisson
-  - _target_: lfads_torch.models.modules.recons.Poisson
-  - _target_: lfads_torch.models.modules.recons.Poisson
+  - _target_: lfads_torch.modules.recons.Poisson
+  - _target_: lfads_torch.modules.recons.Poisson
+  - _target_: lfads_torch.modules.recons.Poisson
 variational: True
 co_prior:
-  _target_: lfads_torch.models.modules.priors.AutoregressiveMultivariateNormal
+  _target_: lfads_torch.modules.priors.AutoregressiveMultivariateNormal
   tau: 10.0
   nvar: 0.1
   shape: ${model.co_dim}
 ic_prior:
-  _target_: lfads_torch.models.modules.priors.MultivariateNormal
+  _target_: lfads_torch.modules.priors.MultivariateNormal
   mean: 0
   variance: 0.1
   shape: ${model.ic_dim}

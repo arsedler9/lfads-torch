@@ -52,6 +52,19 @@ class Poisson(Reconstruction):
         return torch.exp(output_params[..., 0])
 
 
+class PoissonBPS(Poisson):
+    def compute_loss(self, data, output_params):
+        nll_model = super().compute_loss(data, output_params)
+        nll_null = F.poisson_nll_loss(
+            torch.mean(data, dim=(0, 1), keepdim=True),
+            data,
+            log_input=False,
+            full=True,
+            reduction="none",
+        )
+        return (nll_model - nll_null) / (torch.log(torch.tensor(2)) * torch.mean(data))
+
+
 class MSE(Reconstruction):
     def __init__(self):
         self.n_params = 1
