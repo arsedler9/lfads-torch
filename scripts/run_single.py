@@ -1,4 +1,3 @@
-import logging
 import os
 import shutil
 from datetime import datetime
@@ -6,14 +5,12 @@ from pathlib import Path
 
 from lfads_torch.run_model import run_model
 
-logger = logging.getLogger(__name__)
-
 # ---------- OPTIONS -----------
-OVERWRITE = True
-PROJECT_STR = "lfads-torch"
+PROJECT_STR = "lfads-torch-example"
 DATASET_STR = "nlb_mc_maze"
-RUN_TAG = datetime.now().strftime("%Y%m%d-%H%M%S")
-RUN_DIR = Path("/snel/share/runs") / PROJECT_STR / DATASET_STR / "single" / RUN_TAG
+RUN_TAG = datetime.now().strftime("%y%m%d") + "_exampleSingle"
+RUN_DIR = Path("/snel/share/runs") / PROJECT_STR / DATASET_STR / RUN_TAG
+OVERWRITE = True
 # ------------------------------
 
 # Overwrite the directory if necessary
