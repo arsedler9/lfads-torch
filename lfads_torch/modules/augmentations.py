@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.distributions import Bernoulli
 
-from ...tuples import SessionBatch
+from ..tuples import SessionBatch
 
 
 def pad_mask(mask, data, value):

@@ -2,14 +2,14 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from ..metrics import ExpSmoothedMetric, r2_score, regional_bits_per_spike
-from ..tuples import SessionBatch, SessionOutput
-from ..utils import transpose_lists
+from .metrics import ExpSmoothedMetric, r2_score, regional_bits_per_spike
 from .modules import augmentations
 from .modules.decoder import Decoder
 from .modules.encoder import Encoder
 from .modules.l2 import compute_l2_penalty
 from .modules.priors import Null
+from .tuples import SessionBatch, SessionOutput
+from .utils import transpose_lists
 
 
 class LFADS(pl.LightningModule):
