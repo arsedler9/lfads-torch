@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+title: >-
+  lfads-torch: A modular and extensible implementation of
+  latent factor analysis via dynamical systems
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Andrew
+    name-particle: R
+    family-names: Sedler
+    email: arsedle@emory.edu
+    affiliation: Emory University
+    orcid: 'https://orcid.org/0000-0001-9480-0698'
+  - given-names: Chethan
+    family-names: Pandarinath
+    email: cpandar@emory.edu
+    affiliation: Emory University
+    orcid: 'https://orcid.org/0000-0003-1241-1432'
+identifiers:
+  - type: other
+    value: 'https://arxiv.org/abs/2309.01230'
+    description: arXiv preprint
+repository-code: 'https://github.com/arsedler9/lfads-torch'
+abstract: >-
+  Latent factor analysis via dynamical systems (LFADS) is an
+  RNN-based variational sequential autoencoder that achieves
+  state-of-the-art performance in denoising high-dimensional
+  neural activity for downstream applications in science and
+  engineering. Recently introduced variants and extensions
+  continue to demonstrate the applicability of the
+  architecture to a wide variety of problems in
+  neuroscience. Since the development of the original
+  implementation of LFADS, new technologies have emerged
+  that use dynamic computation graphs, minimize boilerplate
+  code, compose model configuration files, and simplify
+  large-scale training. Building on these modern Python
+  libraries, we introduce lfads-torch -- a new open-source
+  implementation of LFADS that unifies existing variants and
+  is designed to be easier to understand, configure, and
+  extend. Documentation, source code, and issue tracking are
+  available at: https://github.com/arsedler9/lfads-torch.
+keywords:
+  - deep learning
+  - neuroscience
+  - dynamical systems
+license: Apache-2.0
