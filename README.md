@@ -1,9 +1,8 @@
 # `lfads-torch`: A modular and extensible implementation of latent factor analysis via dynamical systems
 
-Latent factor analysis via dynamical systems (LFADS) is a variational sequential autoencoder that achieves state-of-the-art performance in denoising high-dimensional neural spiking activity for downstream applications in science and engineering [1, 2, 3, 4]. Recently introduced variants have continued to demonstrate the applicability of the architecture to a wide variety of problems in neuroscience [5, 6, 7, 8]. Since the development of the original implementation of LFADS, new technologies have emerged that use dynamic computation graphs [9], minimize boilerplate code [10], compose model configuration files [11], and simplify large-scale training [12]. Building on these modern Python libraries, we introduce `lfads-torch` &mdash; a new open-source implementation of LFADS designed to be easier to understand, configure, and extend.
+[![arXiv](https://img.shields.io/badge/arXiv-2309.01230-b31b1b.svg)](https://arxiv.org/abs/2309.01230)
 
-If you find this code useful in your research, please cite the accompanying preprint:
-> Sedler, AR, Pandarinath, C. "`lfads-torch`: A modular and extensible implementation of latent factor analysis via dynamical systems". arXiv 2023. [URL]
+Latent factor analysis via dynamical systems (LFADS) is a variational sequential autoencoder that achieves state-of-the-art performance in denoising high-dimensional neural spiking activity for downstream applications in science and engineering [1, 2, 3, 4]. Recently introduced variants have continued to demonstrate the applicability of the architecture to a wide variety of problems in neuroscience [5, 6, 7, 8]. Since the development of the original implementation of LFADS, new technologies have emerged that use dynamic computation graphs [9], minimize boilerplate code [10], compose model configuration files [11], and simplify large-scale training [12]. Building on these modern Python libraries, we introduce `lfads-torch` &mdash; a new open-source implementation of LFADS designed to be easier to understand, configure, and extend.
 
 # Installation
 To create an environment and install the dependencies of the project, run the following commands:
@@ -26,7 +25,7 @@ The first step in applying `lfads-torch` to your dataset is to prepare your prep
 
 Note that for both training and validation data, `encod_data` may be the same as `recon_data`, but they can be different to allow prediction of held out neurons or time steps.
 
-Create a new configuration file for your dataset at `configs/datamodule/my_datamodule.yaml`:
+Create a new configuration file for your dataset (e.g. `configs/datamodule/my_datamodule.yaml`):
 ```
 _target_: lfads_torch.datamodules.BasicDataModule
 data_paths:
@@ -34,10 +33,10 @@ data_paths:
 batch_size: <YOUR-BATCH-SIZE>
 ```
 
-Alternatively, if you'd like to run `lfads-torch` on datasets from the Neural Latents Benchmark, we provide preprocessed copies of these datasets in `datasets`. Alternatively, you can find instructions and preprocessing scripts in the [`nlb-lightning` repo](https://github.com/arsedler9/nlb-lightning) to create them for yourself. With [`nlb_tools`](https://github.com/neurallatents/nlb_tools) installed in your environment, you can additionally use the `NLBEvaluation` extension to monitor NLB metrics during while training `lfads-torch` models.
+We also provide preprocessed example data files from the Neural Latents Benchmark in `datasets`. With [`nlb_tools`](https://github.com/neurallatents/nlb_tools) installed in your environment, you can additionally use the `NLBEvaluation` extension to monitor NLB metrics while training `lfads-torch` models.
 
 ## Model Configuration
-Next, you'll need to create a model configuration file that defines the architecture of your LFADS model at `configs/model/my_model.yaml`. We recommend starting with a copy of the `configs/model/nlb_mc_maze.yaml` file. At the least, you'll need to specify the following values in this file with the parameters of your dataset:
+Next, you'll need to create a model configuration file that defines the architecture of your LFADS model (e.g. `configs/model/my_model.yaml`). We recommend starting with a copy of the `configs/model/nlb_mc_maze.yaml` file. At the least, you'll need to specify the following values in this file with the parameters of your dataset:
 - `encod_data_dim`: The `n_channels` dimension of `encod_data` from your data file.
 - `encod_seq_len`: The `n_timesteps` dimension of `encod_data` from your data file.
 - `recon_seq_len`: The `n_timesteps` dimension of `recon_data` from your data file.
@@ -53,9 +52,9 @@ overrides={
     "model": "my_model",
 }
 ```
-This will tell `lfads-torch` to use the custom datamodule and model configurations you just defined. Running this script in your `lfads-torch` environment should begin optimizing a single model on your GPU if it is available. Logs and checkpoints will be saved in the model directory, and model outputs will be saved in `lfads_output.h5` when training is complete. Feel free to inspect `configs/single.yaml` and `configs/callbacks` to experiment with different `Trainer` arguments, alternative loggers and callbacks, and more.
+This will tell `lfads-torch` to use the custom datamodule and model configurations you just defined. Running this script in your `lfads-torch` environment should begin optimizing a single model on your GPU if it is available. Logs and checkpoints will be saved in the model directory, and model outputs will be saved in `lfads_output_sess0.h5` when training is complete. Feel free to inspect `configs/single.yaml` and `configs/callbacks` to experiment with different `Trainer` arguments, alternative loggers and callbacks, and more.
 
-As a next step, try specifying a random search in `scripts/run_multi.py` or a population-based training run in `scripts/run_pbt.py` and running a large-scale sweep to identify the optimal hyperparameters for your dataset!
+As a next step, try specifying a random search in `scripts/run_multi.py` or a population-based training run in `scripts/run_pbt.py` and running a large-scale sweep to identify high-performing hyperparameters for your dataset!
 
 # Advanced Usage
 `lfads-torch` is designed to be modular in order to easily adapt to a wide variety of use cases. At the core of this modularity is the use of composable configuration files via Hydra [11]. User-defined objects can be substituted anywhere in the framework by simply modifying a `_target_` key and its associated arguments. In this section, we draw attention to some of the more significant opportunities that this modularity provides.
