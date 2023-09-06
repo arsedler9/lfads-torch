@@ -7,8 +7,7 @@ message: >-
   metadata from this file.
 type: software
 authors:
-  - given-names: Andrew
-    name-particle: R
+  - given-names: Andrew R
     family-names: Sedler
     email: arsedle@emory.edu
     affiliation: Emory University
