@@ -11,12 +11,19 @@ class FanInLinear(nn.Linear):
         nn.init.constant_(self.bias, 0.0)
 
 
-class HDF5InitLinear(nn.Linear):
-    def __init__(self, inits_path: str, *args, **kwargs):
+class MultisessionReadin(nn.Linear):
+    def __init__(
+        self,
+        init_path: str,
+        requires_grad: bool = False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        with h5py.File(inits_path) as h5file:
+        with h5py.File(init_path) as h5file:
             state_dict = {
                 "weight": h5file["readin_init_weight"][()],
                 "bias": h5file["readin_init_bias"][()],
             }
         self.load_state_dict(state_dict)
+        self.requires_grad = requires_grad
