@@ -1,7 +1,9 @@
 import math
+from glob import glob
 
 import h5py
 import numpy as np
+import torch
 from torch import nn
 
 
@@ -12,33 +14,55 @@ class FanInLinear(nn.Linear):
         nn.init.constant_(self.bias, 0.0)
 
 
-class MultisessionReadin(nn.Linear):
+class MultisessionReadin(nn.ModuleList):
     def __init__(
         self,
-        params_path: str,
+        datafile_pattern: str,
         requires_grad: bool = False,
-        *args,
-        **kwargs,
     ):
-        super().__init__(*args, **kwargs)
-        with h5py.File(params_path) as h5file:
-            weight = h5file["readin_weight"][()]
-            bias = -np.dot(h5file["readout_bias"][()], weight)
-        self.load_state_dict({"weight": weight, "bias": bias})
-        self.requires_grad = requires_grad
+        modules = []
+        # Identify paths that match the datafile pattern
+        data_paths = sorted(glob(datafile_pattern))
+        for data_path in data_paths:
+            # Load the pre-computed readin transformations
+            with h5py.File(data_path) as h5file:
+                weight = h5file["readin_weight"][()]
+                bias = -np.dot(h5file["readout_bias"][()], weight)
+            # Create a linear layer and load the pre-computed parameters
+            layer = nn.Linear(*weight.shape)
+            layer.load_state_dict(
+                {"weight": torch.tensor(weight.T), "bias": torch.tensor(bias)}
+            )
+            modules.append(layer)
+        # Create the nn.ModuleList
+        super().__init__(modules)
+        # Allow the user to set requires_grad
+        for param in self.parameters():
+            param.requires_grad_(requires_grad)
 
 
-class MultisessionReadout(nn.Linear):
+class MultisessionReadout(nn.ModuleList):
     def __init__(
         self,
-        params_path: str,
+        datafile_pattern: str,
         requires_grad: bool = True,
-        *args,
-        **kwargs,
     ):
-        super().__init__(*args, **kwargs)
-        with h5py.File(params_path) as h5file:
-            weight = np.linalg.pinv(h5file["readin_weight"][()])
-            bias = h5file["readout_bias"][()]
-        self.load_state_dict({"weight": weight, "bias": bias})
-        self.requires_grad = requires_grad
+        modules = []
+        # Identify paths that match the datafile pattern
+        data_paths = sorted(glob(datafile_pattern))
+        for data_path in data_paths:
+            # Load the pre-computed readout transformations
+            with h5py.File(data_path) as h5file:
+                weight = np.linalg.pinv(h5file["readin_weight"][()])
+                bias = h5file["readout_bias"][()]
+            # Create a linear layer and load the pre-computed parameters
+            layer = nn.Linear(*weight.shape)
+            layer.load_state_dict(
+                {"weight": torch.tensor(weight.T), "bias": torch.tensor(bias)}
+            )
+            modules.append(layer)
+        # Create the nn.ModuleList
+        super().__init__(modules)
+        # Allow the user to set requires_grad
+        for param in self.parameters():
+            param.requires_grad_(requires_grad)

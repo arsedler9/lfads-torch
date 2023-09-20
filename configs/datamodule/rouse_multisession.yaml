@@ -1,0 +1,3 @@
+_target_: lfads_torch.datamodules.BasicDataModule
+datafile_pattern: /snel/share/share/data/rouse_multisession/P_blackrock/lfads_2017*.h5
+batch_size: 2048

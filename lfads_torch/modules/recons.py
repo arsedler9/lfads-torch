@@ -9,6 +9,8 @@ tensors of data and inferred parameters.
 """
 
 import abc
+import copy
+from glob import glob
 
 import torch
 import torch.nn.functional as F
@@ -33,8 +35,16 @@ class Reconstruction(abc.ABC):
         pass
 
 
-class Poisson(Reconstruction):
+class MultisessionReconstruction(nn.ModuleList):
+    def __init__(self, datafile_pattern, recon):
+        data_paths = sorted(glob(datafile_pattern))
+        recons = [copy.deepcopy(recon) for _ in data_paths]
+        super().__init__(recons)
+
+
+class Poisson(nn.Module, Reconstruction):
     def __init__(self):
+        super().__init__()
         self.n_params = 1
 
     def reshape_output_params(self, output_params):
@@ -65,8 +75,9 @@ class PoissonBPS(Poisson):
         return (nll_model - nll_null) / (torch.log(torch.tensor(2)) * torch.mean(data))
 
 
-class MSE(Reconstruction):
+class MSE(nn.Module, Reconstruction):
     def __init__(self):
+        super().__init__()
         self.n_params = 1
 
     def reshape_output_params(self, output_params):
@@ -79,8 +90,9 @@ class MSE(Reconstruction):
         return output_params[..., 0]
 
 
-class Gaussian(Reconstruction):
+class Gaussian(nn.Module, Reconstruction):
     def __init__(self):
+        super().__init__()
         self.n_params = 2
 
     def reshape_output_params(self, output_params):
@@ -98,8 +110,9 @@ class Gaussian(Reconstruction):
         return output_params[..., 0]
 
 
-class Gamma(Reconstruction):
+class Gamma(nn.Module, Reconstruction):
     def __init__(self):
+        super().__init__()
         self.n_params = 2
 
     def reshape_output_params(self, output_params):
@@ -120,7 +133,7 @@ class Gamma(Reconstruction):
 class ZeroInflatedGamma(nn.Module, Reconstruction):
     def __init__(
         self,
-        recon_dim: int,
+        recon_dim: int,  # TODO: Fix for multisession
         gamma_loc: float,
         scale_init: float,
         scale_prior: float,

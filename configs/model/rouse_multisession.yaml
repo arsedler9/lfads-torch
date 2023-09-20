@@ -2,8 +2,8 @@ _target_: lfads_torch.model.LFADS
 
 # --------- architecture --------- #
 encod_data_dim: ${model.fac_dim}
-encod_seq_len: 140
-recon_seq_len: 180
+encod_seq_len: 30
+recon_seq_len: ${model.encod_seq_len}
 ext_input_dim: 0
 ic_enc_seq_len: 0
 ic_enc_dim: 100
@@ -13,40 +13,16 @@ con_dim: 80
 co_dim: 4
 ic_dim: 100
 gen_dim: 100
-fac_dim: 40
+fac_dim: 50
 
 # --------- readin / readout --------- #
 readin:
-  _target_: torch.nn.ModuleList
-  modules:
-    - _target_: lfads_torch.modules.readin_readout.MultisessionReadin
-      params_path: ${datamodule.data_paths.0}
-      in_features: 122
-      out_features: ${model.fac_dim}
-    - _target_: lfads_torch.modules.readin_readout.MultisessionReadin
-      params_path: ${datamodule.data_paths.1}
-      in_features: 114
-      out_features: ${model.fac_dim}
-    - _target_: lfads_torch.modules.readin_readout.MultisessionReadin
-      params_path: ${datamodule.data_paths.2}
-      in_features: 107
-      out_features: ${model.fac_dim}
+  _target_: lfads_torch.modules.readin_readout.MultisessionReadin
+  datafile_pattern: ${datamodule.datafile_pattern}
 
 readout:
-  _target_: torch.nn.ModuleList
-  modules:
-    - _target_: lfads_torch.modules.readin_readout.MultisessionReadout
-      params_path: ${datamodule.data_paths.0}
-      in_features: ${model.fac_dim}
-      out_features: 162
-    - _target_: lfads_torch.modules.readin_readout.MultisessionReadout
-      params_path: ${datamodule.data_paths.1}
-      in_features: ${model.fac_dim}
-      out_features: 152
-    - _target_: lfads_torch.modules.readin_readout.MultisessionReadout
-      params_path: ${datamodule.data_paths.2}
-      in_features: ${model.fac_dim}
-      out_features: 142
+  _target_: lfads_torch.modules.readin_readout.MultisessionReadout
+  datafile_pattern: ${datamodule.datafile_pattern}
 
 # --------- augmentation --------- #
 train_aug_stack:
@@ -63,9 +39,10 @@ infer_aug_stack:
 
 # --------- priors / posteriors --------- #
 reconstruction:
-  - _target_: lfads_torch.modules.recons.Poisson
-  - _target_: lfads_torch.modules.recons.Poisson
-  - _target_: lfads_torch.modules.recons.Poisson
+  _target_: lfads_torch.modules.recons.MultisessionReconstruction
+  datafile_pattern: ${datamodule.datafile_pattern}
+  recon:
+    _target_: lfads_torch.modules.recons.Poisson
 variational: True
 co_prior:
   _target_: lfads_torch.modules.priors.AutoregressiveMultivariateNormal
