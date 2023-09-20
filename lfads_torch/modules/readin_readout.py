@@ -1,6 +1,7 @@
 import math
 
 import h5py
+import numpy as np
 from torch import nn
 
 
@@ -21,9 +22,23 @@ class MultisessionReadin(nn.Linear):
     ):
         super().__init__(*args, **kwargs)
         with h5py.File(params_path) as h5file:
-            state_dict = {
-                "weight": h5file["readin_weight"][()],
-                "bias": h5file["readin_bias"][()],
-            }
-        self.load_state_dict(state_dict)
+            weight = h5file["readin_weight"][()]
+            bias = -np.dot(h5file["readout_bias"][()], weight)
+        self.load_state_dict({"weight": weight, "bias": bias})
+        self.requires_grad = requires_grad
+
+
+class MultisessionReadout(nn.Linear):
+    def __init__(
+        self,
+        params_path: str,
+        requires_grad: bool = True,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        with h5py.File(params_path) as h5file:
+            weight = np.linalg.pinv(h5file["readin_weight"][()])
+            bias = h5file["readout_bias"][()]
+        self.load_state_dict({"weight": weight, "bias": bias})
         self.requires_grad = requires_grad
