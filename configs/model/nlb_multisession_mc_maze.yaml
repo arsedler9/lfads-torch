@@ -19,26 +19,32 @@ fac_dim: 40
 readin:
   _target_: torch.nn.ModuleList
   modules:
-    - _target_: torch.nn.Linear
+    - _target_: lfads_torch.modules.readin_readout.MultisessionReadin
+      params_path: ${datamodule.data_paths.0}
       in_features: 122
       out_features: ${model.fac_dim}
-    - _target_: torch.nn.Linear
+    - _target_: lfads_torch.modules.readin_readout.MultisessionReadin
+      params_path: ${datamodule.data_paths.1}
       in_features: 114
       out_features: ${model.fac_dim}
-    - _target_: torch.nn.Linear
+    - _target_: lfads_torch.modules.readin_readout.MultisessionReadin
+      params_path: ${datamodule.data_paths.2}
       in_features: 107
       out_features: ${model.fac_dim}
 
 readout:
   _target_: torch.nn.ModuleList
   modules:
-    - _target_: torch.nn.Linear
+    - _target_: lfads_torch.modules.readin_readout.MultisessionReadout
+      params_path: ${datamodule.data_paths.0}
       in_features: ${model.fac_dim}
       out_features: 162
-    - _target_: torch.nn.Linear
+    - _target_: lfads_torch.modules.readin_readout.MultisessionReadout
+      params_path: ${datamodule.data_paths.1}
       in_features: ${model.fac_dim}
       out_features: 152
-    - _target_: torch.nn.Linear
+    - _target_: lfads_torch.modules.readin_readout.MultisessionReadout
+      params_path: ${datamodule.data_paths.2}
       in_features: ${model.fac_dim}
       out_features: 142
 
