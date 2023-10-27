@@ -1,0 +1,3 @@
+_target_: lfads_torch.datamodules.BasicDataModule
+datafile_pattern: /path/to/prepared/session/files/lfads_2017*.h5
+batch_size: 1000

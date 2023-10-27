@@ -41,7 +41,7 @@ class MultisessionReadin(nn.ModuleList):
             param.requires_grad_(requires_grad)
 
 
-class MultisessionReadout(nn.ModuleList):
+class PCRMultisessionReadout(nn.ModuleList):
     def __init__(
         self,
         datafile_pattern: str,
@@ -60,6 +60,29 @@ class MultisessionReadout(nn.ModuleList):
             layer.load_state_dict(
                 {"weight": torch.tensor(weight.T), "bias": torch.tensor(bias)}
             )
+            modules.append(layer)
+        # Create the nn.ModuleList
+        super().__init__(modules)
+        # Allow the user to set requires_grad
+        for param in self.parameters():
+            param.requires_grad_(requires_grad)
+
+class MultisessionReadout(nn.ModuleList):
+    def __init__(
+        self,
+        in_features: int,
+        datafile_pattern: str,
+        requires_grad: bool = True,
+    ):
+        modules = []
+        # Identify paths that match the datafile pattern
+        data_paths = sorted(glob(datafile_pattern))
+        for data_path in data_paths:
+            # Load the readout dimension
+            with h5py.File(data_path) as h5file:
+                out_features = h5file["train_recon_data"].shape[-1]
+            # Create a linear layer
+            layer = nn.Linear(in_features, out_features)
             modules.append(layer)
         # Create the nn.ModuleList
         super().__init__(modules)
