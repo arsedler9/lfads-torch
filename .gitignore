@@ -1,4 +1,5 @@
 test_*.yaml
+data_extracted
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
