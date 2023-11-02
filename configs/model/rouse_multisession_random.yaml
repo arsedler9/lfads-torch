@@ -19,11 +19,14 @@ fac_dim: 30
 readin:
   _target_: lfads_torch.modules.readin_readout.MultisessionReadin
   datafile_pattern: ${datamodule.datafile_pattern}
+  out_features: ${model.fac_dim}
+  pcr_init: False
 
 readout:
   _target_: lfads_torch.modules.readin_readout.MultisessionReadout
-  in_features: ${model.fac_dim}
   datafile_pattern: ${datamodule.datafile_pattern}
+  in_features: ${model.fac_dim}
+  pcr_init: False
 
 # --------- augmentation --------- #
 train_aug_stack:

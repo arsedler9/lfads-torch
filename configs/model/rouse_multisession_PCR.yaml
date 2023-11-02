@@ -21,7 +21,7 @@ readin:
   datafile_pattern: ${datamodule.datafile_pattern}
 
 readout:
-  _target_: lfads_torch.modules.readin_readout.PCRMultisessionReadout
+  _target_: lfads_torch.modules.readin_readout.MultisessionReadout
   datafile_pattern: ${datamodule.datafile_pattern}
 
 # --------- augmentation --------- #

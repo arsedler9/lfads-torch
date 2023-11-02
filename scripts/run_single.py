@@ -9,7 +9,7 @@ from lfads_torch.run_model import run_model
 PROJECT_STR = "lfads-torch-example"
 DATASET_STR = "nlb_mc_maze"
 RUN_TAG = datetime.now().strftime("%y%m%d") + "_exampleSingle"
-RUN_DIR = Path("/snel/share/runs") / PROJECT_STR / DATASET_STR / RUN_TAG
+RUN_DIR = Path("runs") / PROJECT_STR / DATASET_STR / RUN_TAG
 OVERWRITE = True
 # ------------------------------
 
