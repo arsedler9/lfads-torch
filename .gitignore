@@ -1,5 +1,6 @@
 test_*.yaml
-data_extracted
+tutorials/multisession/AnimalP
+datasets/rouse_multisession
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -29,7 +29,7 @@ class _MultisessionModuleList(abc.ABC, nn.ModuleList):
             if pcr_init:
                 # Load the pre-computed transformations
                 state_dict = self._get_state_dict(data_path)
-                in_features, out_features = state_dict["weight"].shape
+                out_features, in_features = state_dict["weight"].shape
                 layer = nn.Linear(in_features, out_features)
                 layer.load_state_dict(state_dict)
             else:
