@@ -1,15 +1,12 @@
-import copy
 import glob
 import os
-import pdb
-import pickle
 
 import h5py
 import matplotlib.cm as colormap
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
-from scipy.io import loadmat, savemat
+from scipy.io import loadmat
 from sklearn.decomposition import PCA
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import KFold
