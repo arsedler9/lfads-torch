@@ -12,3 +12,4 @@ matplotlib
 wandb
 scikit-learn
 ipykernel
+seaborn
