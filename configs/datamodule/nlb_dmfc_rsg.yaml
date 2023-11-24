@@ -1,6 +1,5 @@
 _target_: lfads_torch.datamodules.BasicDataModule
-data_paths:
-  - ${relpath:datasets/dmfc_rsg-05ms-val.h5}
+datafile_pattern: ${relpath:datasets/dmfc_rsg-05ms-val.h5}
 batch_keys:
   - behavior
 attr_keys:
