@@ -1,32 +1,28 @@
 _target_: lfads_torch.model.LFADS
 
 # --------- architecture --------- #
-encod_data_dim: ${model.fac_dim}
-encod_seq_len: 140
-recon_seq_len: 180
+encod_data_dim: 50
+encod_seq_len: 30
+recon_seq_len: ${model.encod_seq_len}
 ext_input_dim: 0
 ic_enc_seq_len: 0
 ic_enc_dim: 100
-ci_enc_dim: 80
+ci_enc_dim: 100
 ci_lag: 1
-con_dim: 80
-co_dim: 4
+con_dim: 100
+co_dim: 6
 ic_dim: 100
 gen_dim: 100
-fac_dim: 40
+fac_dim: 50
 
 # --------- readin / readout --------- #
 readin:
   _target_: lfads_torch.modules.readin_readout.MultisessionReadin
   datafile_pattern: ${datamodule.datafile_pattern}
-  out_features: ${model.fac_dim}
-  pcr_init: False
 
 readout:
   _target_: lfads_torch.modules.readin_readout.MultisessionReadout
   datafile_pattern: ${datamodule.datafile_pattern}
-  in_features: ${model.fac_dim}
-  pcr_init: False
 
 # --------- augmentation --------- #
 train_aug_stack:
@@ -43,9 +39,10 @@ infer_aug_stack:
 
 # --------- priors / posteriors --------- #
 reconstruction:
-  - _target_: lfads_torch.modules.recons.Poisson
-  - _target_: lfads_torch.modules.recons.Poisson
-  - _target_: lfads_torch.modules.recons.Poisson
+  _target_: lfads_torch.modules.recons.MultisessionReconstruction
+  datafile_pattern: ${datamodule.datafile_pattern}
+  recon:
+    _target_: lfads_torch.modules.recons.Poisson
 variational: True
 co_prior:
   _target_: lfads_torch.modules.priors.AutoregressiveMultivariateNormal
@@ -72,18 +69,18 @@ lr_decay: 0.95
 lr_patience: 6
 lr_adam_beta1: 0.9
 lr_adam_beta2: 0.999
-lr_adam_epsilon: 1.0e-8
+lr_adam_epsilon: 3.1623e-5
 lr_scheduler: False
 
 # --------- regularization --------- #
 weight_decay: 0.0
 l2_start_epoch: 0
-l2_increase_epoch: 80
+l2_increase_epoch: 50
 l2_ic_enc_scale: 0.0
 l2_ci_enc_scale: 0.0
 l2_gen_scale: 0.0 # sampled
 l2_con_scale: 0.0 # sampled
 kl_start_epoch: 0
-kl_increase_epoch: 80
+kl_increase_epoch: 50
 kl_ic_scale: 0.0 # sampled
 kl_co_scale: 0.0 # sampled
