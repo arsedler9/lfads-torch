@@ -1,9 +1,8 @@
 import os
-import shutil
-from datetime import datetime
-from pathlib import Path
+import sys
 
 from lfads_torch.run_model import run_model
+
 
 # ---------- OPTIONS -----------
 PROJECT_STR = "lfads-torch-example"
@@ -22,9 +21,6 @@ shutil.copyfile(__file__, RUN_DIR / Path(__file__).name)
 # Switch to the `RUN_DIR` and train the model
 os.chdir(RUN_DIR)
 run_model(
-    overrides={
-        "datamodule": DATASET_STR,
-        "model": DATASET_STR,
-    },
-    config_path="../configs/single.yaml",
+    overrides={"datamodule.data_paths.0": datapath},
+    config_path=configpath,
 )
