@@ -25,11 +25,10 @@ The first step in applying `lfads-torch` to your dataset is to prepare your prep
 
 Note that for both training and validation data, `encod_data` may be the same as `recon_data`, but they can be different to allow prediction of held out neurons or time steps.
 
-Create a new configuration file for your dataset (e.g. `configs/datamodule/my_datamodule.yaml`):
+Create a new configuration file for your dataset (e.g. `configs/datamodule/my_datamodule.yaml`). Note that `datafile_pattern` can be a `glob`-style pattern to accommodate multisession runs, but may only match a single file.
 ```
 _target_: lfads_torch.datamodules.BasicDataModule
-data_paths:
-  - <PATH-TO-HDF5-FILE>
+datafile_pattern: <PATH-TO-HDF5-FILE>
 batch_size: <YOUR-BATCH-SIZE>
 ```
 
@@ -52,7 +51,7 @@ overrides={
     "model": "my_model",
 }
 ```
-This will tell `lfads-torch` to use the custom datamodule and model configurations you just defined. Running this script in your `lfads-torch` environment should begin optimizing a single model on your GPU if it is available. Logs and checkpoints will be saved in the model directory, and model outputs will be saved in `lfads_output_sess0.h5` when training is complete. Feel free to inspect `configs/single.yaml` and `configs/callbacks` to experiment with different `Trainer` arguments, alternative loggers and callbacks, and more.
+This will tell `lfads-torch` to use the custom datamodule and model configurations you just defined. Running this script in your `lfads-torch` environment should begin optimizing a single model on your GPU if it is available. Logs and checkpoints will be saved in the model directory, and model outputs will be saved in `lfads_output_sess{i}.h5` when training is complete. Feel free to inspect `configs/single.yaml` and `configs/callbacks` to experiment with different `Trainer` arguments, alternative loggers and callbacks, and more.
 
 As a next step, try specifying a random search in `scripts/run_multi.py` or a population-based training run in `scripts/run_pbt.py` and running a large-scale sweep to identify high-performing hyperparameters for your dataset!
 
