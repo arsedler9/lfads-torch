@@ -11,3 +11,6 @@ flake8
 ray[tune]==2.1.0
 matplotlib
 wandb
+scikit-learn
+ipykernel
+seaborn

@@ -1,3 +1,5 @@
+from glob import glob
+
 import h5py
 import numpy as np
 import pytorch_lightning as pl
@@ -131,7 +133,7 @@ class SessionDataset(Dataset):
 class BasicDataModule(pl.LightningDataModule):
     def __init__(
         self,
-        data_paths: list[str],
+        datafile_pattern: str,
         batch_keys: list[str] = [],
         attr_keys: list[str] = [],
         batch_size: int = 64,
@@ -150,7 +152,8 @@ class BasicDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         hps = self.hparams
         data_dicts = []
-        for data_path in hps.data_paths:
+        data_paths = sorted(glob(hps.datafile_pattern))
+        for data_path in data_paths:
             # Load data arrays from the file
             with h5py.File(data_path, "r") as h5file:
                 data_dict = {k: v[()] for k, v in h5file.items()}

@@ -1,4 +1,8 @@
 test_*.yaml
+tutorials/multisession/AnimalP
+datasets/rouse_multisession
+tutorials/multisession/lfads-output
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

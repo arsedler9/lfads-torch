@@ -1,5 +1,6 @@
 import logging
 import shutil
+from glob import glob
 from pathlib import Path
 
 import h5py
@@ -55,13 +56,15 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
 
     # Compute outputs for one session at a time
     for s, dataloaders in pred_dls.items():
-        # Give each session a unique file path
-        sess_fname = f"{filename.stem}_sess{s}{filename.suffix}"
         # Copy data file for easy access to original data and indices
         dhps = datamodule.hparams
+        data_paths = sorted(glob(dhps.datafile_pattern))
+        # Give each session a unique file path
+        session = data_paths[s].split("/")[-1].split("_")[-1].split(".")[0]
+        sess_fname = f"{filename.stem}_{session}{filename.suffix}"
         if dhps.reshuffle_tv_seed is not None:
             # If the data was shuffled, shuffle it when copying
-            with h5py.File(dhps.data_paths[s]) as h5file:
+            with h5py.File(data_paths[s]) as h5file:
                 data_dict = {k: v[()] for k, v in h5file.items()}
             data_dict = reshuffle_train_valid(
                 data_dict, dhps.reshuffle_tv_seed, dhps.reshuffle_tv_ratio
@@ -70,7 +73,7 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
                 for k, v in data_dict.items():
                     h5file.create_dataset(k, data=v)
         else:
-            shutil.copyfile(datamodule.hparams.data_paths[s], sess_fname)
+            shutil.copyfile(data_paths[s], sess_fname)
         for split in dataloaders.keys():
             # Compute average model outputs for each session and then recombine batches
             logger.info(f"Running posterior sampling on Session {s} {split} data.")
