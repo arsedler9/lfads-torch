@@ -1,3 +1,5 @@
+from typing import Dict, Literal, Tuple
+
 import pytorch_lightning as pl
 import torch
 from torch import nn
@@ -61,6 +63,102 @@ class LFADS(pl.LightningModule):
         kl_ic_scale: float,
         kl_co_scale: float,
     ):
+        """
+        Initialize the LFADS model.
+
+        Parameters
+        ----------
+        encod_data_dim : int
+            Dimensionality of the encoding data.
+        encod_seq_len : int
+            Sequence length of the encoding data.
+        recon_seq_len : int
+            Sequence length of the reconstruction data.
+        ext_input_dim : int
+            Dimensionality of the external input.
+        ic_enc_seq_len : int
+            Time steps to be used for only the initial condition encoder.
+        ic_enc_dim : int
+            Dimensionality of the initial condition encoder.
+        ci_enc_dim : int
+            Dimensionality of the controller input encoder.
+        ci_lag : int
+            Lag of the controller input.
+        con_dim : int
+            Dimensionality of the controller.
+        co_dim : int
+            Dimensionality of the controller output.
+        ic_dim : int
+            Dimensionality of the initial condition.
+        gen_dim : int
+            Dimensionality of the generator.
+        fac_dim : int
+            Dimensionality of the factors.
+        dropout_rate : float
+            Dropout rate.
+        reconstruction : nn.ModuleList
+            List of reconstruction modules.
+        variational : bool
+            Whether to use variational inference.
+        co_prior : nn.Module
+            Prior distribution for the controller output.
+        ic_prior : nn.Module
+            Prior distribution for the initial condition.
+        ic_post_var_min : float
+            Minimum variance for the initial condition posterior.
+        cell_clip : float
+            Value to clip the cell states at.
+        train_aug_stack : augmentations.AugmentationStack
+            Stack of data augmentations to apply during training.
+        infer_aug_stack : augmentations.AugmentationStack
+            Stack of data augmentations to apply during inference.
+        readin : nn.ModuleList
+            List of read-in modules.
+        readout : nn.ModuleList
+            List of read-out modules.
+        loss_scale : float
+            Scaling factor for the loss.
+        recon_reduce_mean : bool
+            Whether to reduce the reconstruction loss by taking the mean.
+        lr_scheduler : bool
+            Whether to use a learning rate scheduler.
+        lr_init : float
+            Initial learning rate.
+        lr_stop : float
+            Stopping threshold for learning rate.
+        lr_decay : float
+            Learning rate decay factor.
+        lr_patience : int
+            Number of epochs to wait before reducing the learning rate.
+        lr_adam_beta1 : float
+            Beta1 parameter for the Adam optimizer.
+        lr_adam_beta2 : float
+            Beta2 parameter for the Adam optimizer.
+        lr_adam_epsilon : float
+            Epsilon parameter for the Adam optimizer.
+        weight_decay : float
+            Weight decay factor.
+        l2_start_epoch : int
+            Epoch to start applying L2 regularization.
+        l2_increase_epoch : int
+            Number of epochs over which to increase the L2 regularization.
+        l2_ic_enc_scale : float
+            Scaling factor for the L2 regularization of the initial condition encoder.
+        l2_ci_enc_scale : float
+            Scaling factor for the L2 regularization of the controller input encoder.
+        l2_gen_scale : float
+            Scaling factor for the L2 regularization of the generator.
+        l2_con_scale : float
+            Scaling factor for the L2 regularization of the controller.
+        kl_start_epoch : int
+            Epoch to start applying KL divergence regularization.
+        kl_increase_epoch : int
+            Number of epochs over which to increase the KL divergence regularization.
+        kl_ic_scale : float
+            Scaling factor for the KL divergence regularization of the initial condition.
+        kl_co_scale : float
+            Scaling factor for the KL divergence regularization of the controller output.
+        """
         super().__init__()
         self.save_hyperparameters(
             ignore=["ic_prior", "co_prior", "reconstruction", "readin", "readout"],
@@ -95,10 +193,27 @@ class LFADS(pl.LightningModule):
 
     def forward(
         self,
-        batch: dict[SessionBatch],
+        batch: Dict[int, SessionBatch],
         sample_posteriors: bool = False,
         output_means: bool = True,
-    ) -> dict[SessionOutput]:
+    ) -> Dict[SessionOutput]:
+        """
+        Forward pass through the model.
+
+        Parameters
+        ----------
+        batch : Dict[int, SessionBatch]
+            A dictionary of SessionBatch objects, where each key is a session index and each value is a SessionBatch object.
+        sample_posteriors : bool, optional
+            If True, samples from the posterior distributions, otherwise passes the mean. Default is False.
+        output_means : bool, optional
+            If True, converts the output parameters to means. Otherwise outputs distribution parameters. Default is True.
+
+        Returns
+        -------
+        Dict[int, SessionOutput]
+            A dictionary of SessionOutput objects, where each key is a session and each value is a SessionOutput object.
+        """
         # Allow SessionBatch input
         if type(batch) == SessionBatch and len(self.readin) == 1:
             batch = {0: batch}
@@ -159,6 +274,18 @@ class LFADS(pl.LightningModule):
         return {s: SessionOutput(*o) for s, o in zip(sessions, output)}
 
     def configure_optimizers(self):
+        """
+        Configures the optimizers for the model.
+
+        Returns
+        -------
+        optimizer : torch.optim.AdamW
+            The AdamW optimizer with parameters from the hyperparameters.
+        scheduler : torch.optim.lr_scheduler.ReduceLROnPlateau
+            The learning rate scheduler that reduces the learning rate over time.
+            Only returned if `lr_scheduler` in hyperparameters is True.
+
+        """
         hps = self.hparams
         # Create an optimizer
         optimizer = torch.optim.AdamW(
@@ -187,18 +314,35 @@ class LFADS(pl.LightningModule):
         else:
             return optimizer
 
-    def _compute_ramp(self, start, increase):
+    def _compute_ramp(self, start: int, increase: int):
         # Compute a coefficient that ramps from 0 to 1 over `increase` epochs
         ramp = (self.current_epoch + 1 - start) / (increase + 1)
         return torch.clamp(torch.tensor(ramp), 0, 1)
 
-    def on_before_optimizer_step(self, optimizer, optimizer_idx):
+    def on_before_optimizer_step(
+        self, optimizer: torch.optim.Optimizer, optimizer_idx: int
+    ):
+        """
+        This method is called before each optimizer step to gradually ramp up weight decay.
+
+        Parameters
+        ----------
+        optimizer : torch.optim.Optimizer
+            The optimizer that will be used to update the model's parameters.
+        optimizer_idx : int
+            The index of the optimizer.
+        """
         hps = self.hparams
         # Gradually ramp weight decay alongside the l2 parameters
         l2_ramp = self._compute_ramp(hps.l2_start_epoch, hps.l2_increase_epoch)
         optimizer.param_groups[0]["weight_decay"] = l2_ramp * hps.weight_decay
 
-    def _shared_step(self, batch, batch_idx, split):
+    def _shared_step(
+        self,
+        batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]],
+        batch_idx: int,
+        split: Literal["train", "valid"],
+    ):
         hps = self.hparams
         # Check that the split argument is valid
         assert split in ["train", "valid"]
@@ -321,13 +465,72 @@ class LFADS(pl.LightningModule):
 
         return loss
 
-    def training_step(self, batch, batch_idx):
+    def training_step(
+        self, batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]], batch_idx: int
+    ):
+        """
+        Performs a training step.
+
+        Parameters
+        ----------
+        batch : Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]]
+            The batch of data to be processed. The dictionary keys are session IDs, and the values are tuples
+            containing a SessionBatch object and a tuple of torch tensors.
+        batch_idx : int
+            The index of the current batch.
+
+        Returns
+        -------
+        torch.Tensor
+            The loss for the current training step.
+        """
         return self._shared_step(batch, batch_idx, "train")
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(
+        self, batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]], batch_idx: int
+    ):
+        """
+        Performs a validation step.
+
+        Parameters
+        ----------
+        batch : Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]]
+            The batch of data to be processed. The dictionary keys are session IDs, and the values are tuples
+            containing a SessionBatch object and a tuple of torch tensors.
+        batch_idx : int
+            The index of the current batch.
+
+        Returns
+        -------
+        torch.Tensor
+            The loss for the current validation step.
+        """
         return self._shared_step(batch, batch_idx, "valid")
 
-    def predict_step(self, batch, batch_ix, sample_posteriors=True):
+    def predict_step(
+        self,
+        batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]],
+        batch_idx: int,
+        sample_posteriors=True,
+    ):
+        """
+        Performs a prediction step.
+
+        Parameters
+        ----------
+        batch : Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]]
+            The batch of data to be processed. The dictionary keys are session IDs, and the values are tuples
+            containing a SessionBatch object and a tuple of torch tensors.
+        batch_idx : int
+            The index of the current batch.
+        sample_posteriors : bool, optional
+            Whether to sample from the posterior distribution or pass means, by default True
+
+        Returns
+        -------
+        Dict[int, SessionOutput]
+            The output of the forward pass through the model.
+        """
         # Discard the extra data - only the SessionBatches are relevant here
         batch = {s: b[0] for s, b in batch.items()}
         # Process the batch for each session
@@ -342,6 +545,9 @@ class LFADS(pl.LightningModule):
         )
 
     def on_validation_epoch_end(self):
+        """
+        Logs hyperparameters that may change during PBT.
+        """
         # Log hyperparameters that may change during PBT
         self.log_dict(
             {
