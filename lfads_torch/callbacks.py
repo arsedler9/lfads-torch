@@ -103,7 +103,6 @@ class RasterPlot(pl.Callback):
         # Compute model output
         output = pl_module.predict_step(
             batch=batch,
-            batch_ix=None,
             sample_posteriors=True,
         )
         # Discard the extra data - only the SessionBatches are relevant here
