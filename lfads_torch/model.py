@@ -510,6 +510,7 @@ class LFADS(pl.LightningModule):
     def predict_step(
         self,
         batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]],
+        batch_idx: int,
         sample_posteriors=True,
     ):
         """
