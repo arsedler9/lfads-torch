@@ -196,7 +196,7 @@ class LFADS(pl.LightningModule):
         batch: Dict[int, SessionBatch],
         sample_posteriors: bool = False,
         output_means: bool = True,
-    ) -> Dict[SessionOutput]:
+    ) -> Dict[int,SessionOutput]:
         """
         Forward pass through the model.
 
