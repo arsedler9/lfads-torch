@@ -36,7 +36,7 @@ We also provide preprocessed example data files from the Neural Latents Benchmar
 
 ## Model Configuration
 Next, you'll need to create a model configuration file that defines the architecture of your LFADS model (e.g. `configs/model/my_model.yaml`). We recommend starting with a copy of the `configs/model/nlb_mc_maze.yaml` file. At the least, you'll need to specify the following values in this file with the parameters of your dataset:
-- `encod_data_dim`: The `n_channels` dimension of `encod_data` from your data file.
+- `encod_data_dim`: The `n_channels` dimension of `encod_data` from your data file. Note for multi-session runs: when using principal component regression for neural stitching, this should match the dimension of the shared space rathern than the original dimensionality of the data.
 - `encod_seq_len`: The `n_timesteps` dimension of `encod_data` from your data file.
 - `recon_seq_len`: The `n_timesteps` dimension of `recon_data` from your data file.
 - `readout.modules.0.out_features`: The `n_channels` dimension of `recon_data` from your data file.
