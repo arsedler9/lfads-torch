@@ -17,7 +17,7 @@ pre-commit install
 
 # Basic Walkthrough
 ## DataModule Configuration
-The first step in applying `lfads-torch` to your dataset is to prepare your preprocessed data files. We recommend saving your data as `n_samples x n_timesteps x n_channels` arrays in the HDF5 format using the following keys:
+The first step in applying `lfads-torch` to your dataset is to prepare your preprocessed data files. Save your data as `n_samples x n_timesteps x n_channels` arrays in the HDF5 format using the following keys:
 - `train_encod_data`: Data to be used as input when training the model.
 - `train_recon_data`: Data to be used as a reconstruction target when training the model.
 - `valid_encod_data`: Data to be used as input when validating the model.
@@ -25,23 +25,31 @@ The first step in applying `lfads-torch` to your dataset is to prepare your prep
 
 Note that for both training and validation data, `encod_data` may be the same as `recon_data`, but they can be different to allow prediction of held out neurons or time steps.
 
-Create a new configuration file for your dataset (e.g. `configs/datamodule/my_datamodule.yaml`). Note that `datafile_pattern` can be a `glob`-style pattern to accommodate multisession runs, but may only match a single file.
+Create a new configuration file for your dataset (e.g. `configs/datamodule/my_datamodule.yaml`). For single-session runs, set `datafile_pattern` to the path to your data file. For multi-session runs, set `datafile_pattern` to a `glob`-style pattern that matches all of your data files.
 ```
 _target_: lfads_torch.datamodules.BasicDataModule
 datafile_pattern: <PATH-TO-HDF5-FILE>
 batch_size: <YOUR-BATCH-SIZE>
 ```
 
-We also provide preprocessed example data files from the Neural Latents Benchmark in `datasets`. With [`nlb_tools`](https://github.com/neurallatents/nlb_tools) installed in your environment, you can additionally use the `NLBEvaluation` extension to monitor NLB metrics while training `lfads-torch` models.
+We provide preprocessed example data files from the Neural Latents Benchmark in `datasets`. With [`nlb_tools`](https://github.com/neurallatents/nlb_tools) installed in your environment, you can additionally use the `NLBEvaluation` extension to monitor NLB metrics while training `lfads-torch` models.
 
 ## Model Configuration
-Next, you'll need to create a model configuration file that defines the architecture of your LFADS model (e.g. `configs/model/my_model.yaml`). We recommend starting with a copy of the `configs/model/nlb_mc_maze.yaml` file. At the least, you'll need to specify the following values in this file with the parameters of your dataset:
-- `encod_data_dim`: The `n_channels` dimension of `encod_data` from your data file. Note for multi-session runs: when using principal component regression for neural stitching, this should match the dimension of the shared space rather than the original dimensionality of the data.
+Next, you'll need to create a model configuration file that defines the architecture of your LFADS model (e.g. `configs/model/my_model.yaml`). We provide several examples in `configs/model`.
+
+While these config files provide an easy way to get up and running with LFADS relatively quickly, these default hyperparameters are unlikely to be the best ones for your dataset. We recommend sweeping over architecture and regularization hyperparameters in order to maximize performance.
+
+### Single-Session
+You can find an example configuration for a single-session model at `configs/model/nlb_mc_maze.yaml`. You'll need to update the following values with your dataset-specific parameters:
+- `encod_data_dim`: The `n_channels` dimension of `encod_data` from your data file.
 - `encod_seq_len`: The `n_timesteps` dimension of `encod_data` from your data file.
 - `recon_seq_len`: The `n_timesteps` dimension of `recon_data` from your data file.
 - `readout.modules.0.out_features`: The `n_channels` dimension of `recon_data` from your data file.
 
-While this is an easy way to get up and running with LFADS relatively quickly, these default hyperparameters are unlikely to be the best ones for your particular dataset. We recommend sweeping over architecture and regularization hyperparameters in order to maximize performance.
+### Multi-Session
+You can find an example configuration for a multi-session model at `configs/model/rouse_multisession_PCR.yaml`. Note that multi-session models perform best with a pre-computed, PCR-based initialization. You can find a tutorial on computing these initializations in `tutorials/multisession`.
+
+The `MultisessionReadin` and `MultisessionReadout` layers infer the input and output dimensionality automatically from your data files. You'll need to set `encod_seq_len` and `recon_seq_len` as specified above, but `encod_data_dim` should be set to the output dimensionality of the readin layers.
 
 ## Training a Model
 To train a single model on your dataset, start with the `scripts/run_single.py` script. Edit the path specified by `RUN_DIR` to your desired model directory and edit the `overrides` argument to `run_model` to the following:
