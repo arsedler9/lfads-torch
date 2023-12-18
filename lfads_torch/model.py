@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Tuple
+from typing import Any, Dict, Literal, Tuple, Union
 
 import pytorch_lightning as pl
 import torch
@@ -196,7 +196,7 @@ class LFADS(pl.LightningModule):
         batch: Dict[int, SessionBatch],
         sample_posteriors: bool = False,
         output_means: bool = True,
-    ) -> Dict[SessionOutput]:
+    ) -> Dict[int, SessionOutput]:
         """
         Forward pass through the model.
 
@@ -273,7 +273,7 @@ class LFADS(pl.LightningModule):
         # Return the parameter estimates and all intermediate activations
         return {s: SessionOutput(*o) for s, o in zip(sessions, output)}
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Union[torch.optim.Optimizer, Dict[str, Any]]:
         """
         Configures the optimizers for the model.
 
@@ -342,7 +342,7 @@ class LFADS(pl.LightningModule):
         batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]],
         batch_idx: int,
         split: Literal["train", "valid"],
-    ):
+    ) -> torch.Tensor:
         hps = self.hparams
         # Check that the split argument is valid
         assert split in ["train", "valid"]
@@ -467,7 +467,7 @@ class LFADS(pl.LightningModule):
 
     def training_step(
         self, batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]], batch_idx: int
-    ):
+    ) -> torch.Tensor:
         """
         Performs a training step.
 
@@ -488,7 +488,7 @@ class LFADS(pl.LightningModule):
 
     def validation_step(
         self, batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]], batch_idx: int
-    ):
+    ) -> torch.Tensor:
         """
         Performs a validation step.
 
@@ -512,7 +512,7 @@ class LFADS(pl.LightningModule):
         batch: Dict[int, Tuple[SessionBatch, Tuple[torch.Tensor]]],
         batch_idx: int,
         sample_posteriors=True,
-    ):
+    ) -> Dict[int, SessionOutput]:
         """
         Performs a prediction step.
 
