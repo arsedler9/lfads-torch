@@ -89,11 +89,13 @@ class MultisessionReadout(_MultisessionModuleList):
         in_features: int = None,
         pcr_init: bool = True,
         requires_grad: bool = True,
+        recon_params: int = 1,
     ):
         assert (
             in_features is not None
         ) != pcr_init, "Setting `in_features` mutually excludes `pcr_init`."
         self.in_features = in_features
+        self.recon_params = recon_params
         super().__init__(
             datafile_pattern=datafile_pattern,
             pcr_init=pcr_init,
@@ -103,6 +105,7 @@ class MultisessionReadout(_MultisessionModuleList):
     def _get_layer_shape(self, data_path):
         with h5py.File(data_path) as h5file:
             out_features = h5file["train_recon_data"].shape[-1]
+            out_features *= self.recon_params
         return self.in_features, out_features
 
     def _get_state_dict(self, data_path):
