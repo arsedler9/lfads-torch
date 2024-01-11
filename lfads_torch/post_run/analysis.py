@@ -60,7 +60,7 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
         dhps = datamodule.hparams
         data_paths = sorted(glob(dhps.datafile_pattern))
         # Give each session a unique file path
-        session = data_paths[s].split("/")[-1].split(".")[0] + "_out"
+        session = data_paths[s].split("/")[-1].split(".")[0]
         sess_fname = f"{filename.stem}_{session}{filename.suffix}"
         if dhps.reshuffle_tv_seed is not None:
             # If the data was shuffled, shuffle it when copying

@@ -89,7 +89,7 @@ class MultisessionReadout(_MultisessionModuleList):
         in_features: int = None,
         pcr_init: bool = True,
         requires_grad: bool = True,
-        recon_params: int = 1
+        recon_params: int = 1,
     ):
         assert (
             in_features is not None
