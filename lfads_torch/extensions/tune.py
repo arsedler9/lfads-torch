@@ -8,6 +8,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 from ray.air._internal.checkpoint_manager import CheckpointStorage
 from ray.tune.execution import trial_runner
 from ray.tune.experiment import Trial
@@ -333,3 +334,15 @@ class ImprovementRatioStopper(Stopper):
             self._best_scores[0] - np.min(self._best_scores)
         ) / np.mean(np.abs(self._best_scores))
         return improvement_ratio <= self._min_improvement_ratio
+
+
+class EarlyStoppingWithBurnInPeriod(pl.callbacks.EarlyStopping):
+    def __init__(self, *args, burn_in_period: int = 0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._burn_in_period = burn_in_period
+
+    def _should_skip_check(self, trainer: pl.Trainer) -> bool:
+        # Skip the check until the burn-in period is over
+        if trainer.current_epoch <= self._burn_in_period:
+            return True
+        return super()._should_skip_check(trainer)
