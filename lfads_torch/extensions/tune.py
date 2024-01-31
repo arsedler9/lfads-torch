@@ -8,13 +8,13 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 from ray.air._internal.checkpoint_manager import CheckpointStorage
 from ray.tune.execution import trial_runner
 from ray.tune.experiment import Trial
 from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.search.sample import Domain
 from ray.tune.stopper import Stopper
-from pytorch_lightning.callbacks import EarlyStopping
 
 logger = logging.getLogger(__name__)
 
@@ -335,20 +335,14 @@ class ImprovementRatioStopper(Stopper):
         ) / np.mean(np.abs(self._best_scores))
         return improvement_ratio <= self._min_improvement_ratio
 
-class CustomEarlyStopping(EarlyStopping):
-    def __init__(self, monitor, min_delta, patience, mode, burn_in_period):
 
-        super().__init__(monitor, min_delta, patience, mode)
-        self.burn_in_period = burn_in_period
+class EarlyStoppingWithBurnInPeriod(pl.callbacks.EarlyStopping):
+    def __init__(self, *args, burn_in_period: int = 0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._burn_in_period = burn_in_period
 
-    def on_train_epoch_end(self, trainer, pl_module):
-        pass
-
-    def on_validation_end(self, trainer, pl_module):
-        
-        epochs_after_burn_in = pl_module.current_epoch + 1 - self.burn_in_period
-        # Don't do anything before the last burn-in epoch
-        if epochs_after_burn_in < 0:
-            return
-        
-        self._run_early_stopping_check(trainer)
+    def _should_skip_check(self, trainer: pl.Trainer) -> bool:
+        # Skip the check until the burn-in period is over
+        if trainer.current_epoch <= self._burn_in_period:
+            return True
+        return super()._should_skip_check(trainer)
