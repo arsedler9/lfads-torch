@@ -17,6 +17,32 @@ OmegaConf.register_new_resolver(
     "relpath", lambda p: str(Path(__file__).parent / ".." / p)
 )
 
+def get_csv_logger(loggers):
+    """Gets the Wandb from a logger
+    or logger collection to allow writing of images.
+    Parameters
+    ----------
+    loggers : obj or list[obj]
+        An object or list of loggers to search for the
+        SummaryWriter.
+    Returns
+    -------
+    torch.utils.tensorboard.writer.SummaryWriter
+        The SummaryWriter object.
+    """
+
+    # work around for LoggerCollection object (deprecated v1.6, removed v1.8)
+    if isinstance(loggers, pl.loggers.base.LoggerCollection):
+        logger_list = [logger for logger in loggers]
+    else:
+        logger_list = loggers if isinstance(loggers, list) else [loggers]
+
+    for logger in logger_list:
+        
+        if isinstance(logger, pl.loggers.csv_logs.CSVLogger ):
+            return logger
+    else:
+        return None
 
 def run_model(
     overrides: dict = {},
@@ -70,6 +96,7 @@ def run_model(
             logger=[instantiate(lg) for lg in config.logger.values()],
             gpus=int(torch.cuda.is_available()),
         )
+        
         # Temporary workaround for PTL step-resuming bug
         if checkpoint_dir:
             ckpt = torch.load(ckpt_path)
@@ -94,3 +121,5 @@ def run_model(
         if torch.cuda.is_available():
             model = model.to("cuda")
         call(config.posterior_sampling.fn, model=model, datamodule=datamodule)
+        call(config.post_evaluation.fn, model=model, datamodule=datamodule)
+        
