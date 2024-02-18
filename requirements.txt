@@ -13,4 +13,3 @@ wandb
 scikit-learn
 ipykernel
 seaborn
-pandas==1.1.5
