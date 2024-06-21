@@ -83,6 +83,8 @@ class Encoder(nn.Module):
             # Add extra zeros if necessary for forward prediction
             fwd_steps = hps.recon_seq_len - hps.encod_seq_len
             ci = F.pad(ci, (0, 0, 0, fwd_steps, 0, 0))
+            # Add extra zeros if encoder does not see whole sequence
+            ci = F.pad(ci, (0, 0, hps.ic_enc_seq_len, 0, 0, 0))
         else:
             # Create a placeholder if there's no controller
             ci = torch.zeros(data.shape[0], hps.recon_seq_len, 0).to(data.device)
