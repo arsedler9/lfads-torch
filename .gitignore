@@ -1,6 +1,6 @@
 test_*.yaml
 tutorials/multisession/AnimalP
-datasets/rouse_multisession
+datasets
 tutorials/multisession/lfads-output
 .DS_Store
 

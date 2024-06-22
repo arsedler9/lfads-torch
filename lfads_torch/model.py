@@ -167,6 +167,9 @@ class LFADS(pl.LightningModule):
         self.hparams.co_prior = co_prior
         # Make sure the nn.ModuleList arguments are all the same length
         assert len(readin) == len(readout) == len(reconstruction)
+        # Make sure the readin and readout networks have the right dimensions
+        assert readin[0].out_features == encod_data_dim
+        assert readout[0].in_features == fac_dim
         # Make sure that non-variational models use null priors
         if not variational:
             assert isinstance(ic_prior, Null) and isinstance(co_prior, Null)
