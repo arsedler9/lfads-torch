@@ -14,7 +14,22 @@ class FanInLinear(nn.Linear):
         nn.init.normal_(self.weight, std=1 / math.sqrt(self.in_features))
         nn.init.constant_(self.bias, 0.0)
 
-
+class MLPReadout(nn.Module):
+    def __init__(self, in_features, hidden_size, num_layers, out_features):
+        super(MLPReadout, self).__init__()
+        self.layers = nn.ModuleList()
+        for i in range(num_layers):
+            if i == 0:
+                self.layers.append(nn.Linear(in_features, hidden_size))
+            else:
+                self.layers.append(nn.Linear(hidden_size, hidden_size))
+        self.output_layer = nn.Linear(hidden_size, out_features)
+    def forward(self, x):
+        for layer in self.layers:
+            x = torch.relu(layer(x))
+        x = self.output_layer(x)
+        return x
+    
 class _MultisessionModuleList(abc.ABC, nn.ModuleList):
     def __init__(
         self,

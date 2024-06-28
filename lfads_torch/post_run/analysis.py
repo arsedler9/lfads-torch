@@ -167,7 +167,7 @@ def run_post_evaluation(model, datamodule, filename):
     dhps = datamodule.hparams
     data_paths = sorted(glob(dhps.datafile_pattern))
     filename = Path(filename)
-    
+   
     for path in data_paths:
         data_path = Path(path)
         interface_path = glob(str(data_path.parent)+'/*_interface.pkl')[0]
@@ -305,8 +305,8 @@ def run_post_evaluation(model, datamodule, filename):
         trials_with_nans = np.unique(ds.trials.trial_id.loc[np.isnan(ds.trials['joystick_position'].values)].values)
         if len(trials_with_nans)/num_trials > 0.33: 
             print(f'Skipping this dataset - {len(trials_with_nans)} contain NaNs.')
-            behavior_r2_heldin = np.nan
-            behavior_r2_heldout = np.nan
+            behavior_r2 = np.nan
+            # behavior_r2_heldout = np.nan
         else:
             print(f'Removing {len(trials_with_nans)} trials that contain NaNs.')
             ds.trials = ds.trials.loc[np.isin(ds.trials.trial_id.values, trials_with_nans, invert=True)]
@@ -332,36 +332,35 @@ def run_post_evaluation(model, datamodule, filename):
                 )
 
             decoder.fit(x_train, y_train)
-            behavior_r2_heldin = decoder.score(x_valid, y_valid, multioutput='variance_weighted')
+            behavior_r2 = decoder.score(x_valid, y_valid, multioutput='variance_weighted')
 
-            (x_train, y_train, train_ids), (x_valid, y_valid, valid_ids) = \
-                    dec.prepare_decoding_data(
-                        ds.trials,
-                        'lfads_factors',
-                        'joystick_position',
-                        valid_ratio=0.2,
-                        ms_lag=0,
-                        n_history=0,
-                        # channels = heldout_channels,
-                        return_groups=True,
-                    )
+            # (x_train, y_train, train_ids), (x_valid, y_valid, valid_ids) = \
+            #         dec.prepare_decoding_data(
+            #             ds.trials,
+            #             'lfads_factors',
+            #             'joystick_position',
+            #             valid_ratio=0.2,
+            #             ms_lag=0,
+            #             n_history=0,
+            #             # channels = heldout_channels,
+            #             return_groups=True,
+            #         )
 
-            decoder = dec.NeuralDecoder(        
-                    {
-                        'estimator': sklearn.linear_model.Ridge(), 
-                        'param_grid': {'alpha': np.logspace(2, 3, 10)},
-                        'cv': 5,
-                    }
-                )
+            # decoder = dec.NeuralDecoder(        
+            #         {
+            #             'estimator': sklearn.linear_model.Ridge(), 
+            #             'param_grid': {'alpha': np.logspace(2, 3, 10)},
+            #             'cv': 5,
+            #         }
+            #     )
 
-            decoder.fit(x_train, y_train)
-            behavior_r2_heldout = decoder.score(x_valid, y_valid, multioutput='variance_weighted')
+            # decoder.fit(x_train, y_train)
+            # behavior_r2_heldout = decoder.score(x_valid, y_valid, multioutput='variance_weighted')
 
         # Co-BPS calculation
         bps = bits_per_spike(valid_heldout_pred, valid_heldout_truth)
 
         # writer.log_metrics({'post_behavior_r2': r2, 'post_co_bps': bps})
-      
         metrics = {
             'kl_ic_scale': model.hparams.kl_ic_scale,
             'kl_co_scale': model.hparams.kl_co_scale,
@@ -380,8 +379,8 @@ def run_post_evaluation(model, datamodule, filename):
             'fac_dim': model.hparams.fac_dim,
             'heldin_channels': len(heldin_channels),
             'heldout_channels': len(heldout_channels),
-            'behavior_r2_heldin': behavior_r2_heldin,
-            'behavior_r2_heldout': behavior_r2_heldout,
+            'behavior_r2_heldin': behavior_r2,
+            # 'behavior_r2_heldout': behavior_r2_heldout,
             'post_co_bps': bps,
             'psth_r2_heldin': psth_r2_heldin,
             'psth_r2_heldout': psth_r2_heldout,
@@ -392,3 +391,163 @@ def run_post_evaluation(model, datamodule, filename):
         with open("evaluation_metrics.json", "w") as outfile:
             outfile.write(json_object)
         
+def run_post_evaluation_node(model, datamodule, filename):
+
+    datamodule.setup()
+    dhps = datamodule.hparams
+    data_paths = sorted(glob(dhps.datafile_pattern))
+    filename = Path(filename)
+    
+    for path in data_paths:
+        data_path = Path(path)
+    
+        # load previous output drop inds
+        with h5py.File(data_path, 'r') as h5f:
+            heldout_idx = h5f['heldout_inds'][()]
+            heldin_idx = h5f['heldin_inds'][()]
+            valid_heldout_truth = h5f['valid_recon_data'][:,:,heldout_idx]
+
+        raw_data_path = glob(str(data_path.parent)+'/*_raw.pkl')[0]
+        with open(raw_data_path, 'rb') as f:
+            ds = pd.read_pickle(f)
+
+        sess_fname = f"{filename.stem}_{data_path.stem}{filename.suffix}"
+        # load lfads output
+        with h5py.File(sess_fname, 'r') as h5f:
+            rates = []
+            factors = []
+            inds = []
+            valid_heldout_pred = h5f[f'valid_output_params'][:,:,heldout_idx]
+            for split in ['train', 'valid']:
+                rates.append(h5f[f'{split}_output_params'][()])
+                factors.append(h5f[f'{split}_factors'][()])
+                inds.append(h5f[f'{split}_inds'][()])
+
+        # merging time
+        rates_arr = np.full((len(inds[0])+len(inds[1]), rates[0].shape[1], rates[0].shape[2]), np.nan)
+        factors_arr = np.full((len(inds[0])+len(inds[1]), factors[0].shape[1], factors[0].shape[2]), np.nan)
+        
+        for s_rates, s_factors, s_inds in zip(rates, factors, inds):
+            rates_arr[s_inds,:,:] = s_rates
+            factors_arr[s_inds,:,:] = s_factors
+
+        signal_type = ['lfads_rates','lfads_factors']
+        dim=[rates_arr.shape[2],factors_arr.shape[2]]
+        midx_tuples = [
+            (sig, f"{i:04}")
+            for sig, dim in zip(signal_type, dim)
+            for i in range(dim)
+        ]
+
+        columns = pd.MultiIndex.from_tuples(midx_tuples, names=["signal", "channel"])
+        lfads_df = pd.DataFrame(np.concatenate([rates_arr.reshape(-1, dim[0]),factors_arr.reshape(-1, dim[1])], axis=1), columns=columns)
+        ds.trials = pd.concat([ds.trials, lfads_df], axis=1)
+
+        # condition-average the trials
+        psth = PSTH(ds.trial_info["target_condition"])
+        spikes_mean, _ = psth.compute_trial_average(ds.trials, 'spikes_smooth',ignore_nans=True)
+        rates_mean, _ = psth.compute_trial_average(ds.trials, 'lfads_rates',ignore_nans=True)
+        spikes_means_pivot = spikes_mean.pivot(index='align_time', columns='condition_id')
+        spikes_mean_data = np.stack(
+            np.split(spikes_means_pivot.values, len(np.unique(ds.data.spikes.columns)), axis=1)
+        )
+        rates_means_pivot = rates_mean.pivot(index='align_time', columns='condition_id')
+        rates_mean_data = np.stack(
+            np.split(rates_means_pivot.values, len(np.unique(ds.data.spikes.columns)), axis=1)
+        )
+        
+        heldout_channels = heldout_idx
+        heldin_channels = heldin_idx
+        # heldin_channels = [i for i in range(spikes_mean_data.shape[0]) if i not in heldout_channels]
+        R2_heldin = np.full((len(heldin_channels),), np.nan)
+        R2_heldout = np.full((len(heldout_channels),), np.nan)
+        # compute the R2
+        for i in range(len(heldin_channels)):
+            R2_heldin[i] = sklearn.metrics.r2_score(spikes_mean_data[heldin_channels[i],:,:].swapaxes(0,1).flatten(), rates_mean_data[heldin_channels[i],:,:].swapaxes(0,1).flatten())
+        for i in range(len(heldout_channels)):
+            R2_heldout[i] = sklearn.metrics.r2_score(spikes_mean_data[heldout_channels[i],:,:].swapaxes(0,1).flatten(), rates_mean_data[heldout_channels[i],:,:].swapaxes(0,1).flatten())
+
+
+        SESSION = ds.fpath.split('/')[-1].split('.')[0]
+        # get the SNR array
+        with open(f'/snel/share/data/neuralink/snr/pager/snr_{SESSION}.pkl', 'rb') as f:
+            snr_array = pickle.load(f)
+        channels = ds.data.spikes.columns.values
+        snr_array['snr'] = snr_array['snr'][channels.astype(np.int32)]
+        snr_heldin = snr_array['snr'][heldin_channels]
+        snr_heldout = snr_array['snr'][heldout_channels]
+
+        psth_r2_heldin = R2_heldin[np.where(snr_heldin > 0)[0]].mean()
+        psth_r2_heldout = R2_heldout[np.where(snr_heldout > 0)[0]].mean()
+
+        num_trials = len(np.unique(ds.trials.trial_id.values))
+        trials_with_nans = np.unique(ds.trials.trial_id.loc[np.isnan(ds.trials['joystick_position'].values)].values)
+        if len(trials_with_nans)/num_trials > 0.33: 
+            print(f'Skipping this dataset - {len(trials_with_nans)} contain NaNs.')
+            behavior_r2 = np.nan
+            # behavior_r2_heldout = np.nan
+        else:
+            print(f'Removing {len(trials_with_nans)} trials that contain NaNs.')
+            ds.trials = ds.trials.loc[np.isin(ds.trials.trial_id.values, trials_with_nans, invert=True)]
+            
+            (x_train, y_train, train_ids), (x_valid, y_valid, valid_ids) = \
+                    dec.prepare_decoding_data(
+                        ds.trials,
+                        'lfads_factors',
+                        'joystick_position',
+                        valid_ratio=0.2,
+                        ms_lag=0,
+                        n_history=0,
+                        # channels = heldin_channels,
+                        return_groups=True,
+                    )
+
+            decoder = dec.NeuralDecoder(        
+                    {
+                        'estimator': sklearn.linear_model.Ridge(), 
+                        'param_grid': {'alpha': np.logspace(2, 3, 10)},
+                        'cv': 5,
+                    }
+                )
+
+            decoder.fit(x_train, y_train)
+            behavior_r2 = decoder.score(x_valid, y_valid, multioutput='variance_weighted')
+
+
+        # Co-BPS calculation
+        bps = bits_per_spike(valid_heldout_pred, valid_heldout_truth)
+
+        # writer.log_metrics({'post_behavior_r2': r2, 'post_co_bps': bps})
+        metrics = {
+            'kl_ic_scale': model.hparams.kl_ic_scale,
+            'kl_co_scale': model.hparams.kl_co_scale,
+            'l2_con_scale': model.hparams.l2_con_scale,
+            'l2_gen_scale': model.hparams.l2_gen_scale,
+            'dropout_rate': model.hparams.dropout_rate,
+            'cd_rate': model.hparams.train_aug_stack.batch_transforms[0].cd_rate,
+            'lr_init': model.hparams.lr_init,
+            'batch_size': dhps.batch_size,
+            'ic_enc_dim': model.hparams.ic_enc_dim,
+            'ci_enc_dim': model.hparams.ci_enc_dim,
+            'con_dim': model.hparams.con_dim,
+            'co_dim': model.hparams.co_dim,
+            'ic_dim': model.hparams.ic_dim,
+            'gen_dim': model.hparams.gen_dim,
+            'fac_dim': model.hparams.fac_dim,
+            'node_dim': model.hparams.node_dim,
+            'node_layers': model.hparams.node_layers,
+            'readout_hidden_size': model.readout[0].layers[0].out_features,
+            'readout_num_layers': len(model.readout[0].layers),
+            'heldin_channels': len(heldin_channels),
+            'heldout_channels': len(heldout_channels),
+            'behavior_r2_heldin': behavior_r2,
+            # 'behavior_r2_heldout': behavior_r2_heldout,
+            'post_co_bps': bps,
+            'psth_r2_heldin': psth_r2_heldin,
+            'psth_r2_heldout': psth_r2_heldout,
+        }
+        json_object = json.dumps(metrics)
+ 
+        # Writing to sample.json
+        with open("evaluation_metrics.json", "w") as outfile:
+            outfile.write(json_object)

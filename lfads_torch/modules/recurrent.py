@@ -3,7 +3,38 @@ from torch import nn
 
 from .initializers import init_gru_cell_
 
+class MLPCell(nn.Module):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int,
+        node_dim: int,
+    ):
+        super().__init__()
+        self.layers = nn.ModuleList()
+        for i in range(num_layers):
+            if i == 0:
+                self.layers.append(nn.Linear(hidden_size + input_size, node_dim))
+            else:
+                self.layers.append(nn.Linear(node_dim, node_dim))
+            self.layers.append(nn.ReLU())
+        self.output_layer = nn.Linear(node_dim, hidden_size)
+        # self.mlp = nn.Sequential(
+        #     nn.Linear(hidden_size + input_size, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, hidden_size),
+        # )
+        # TMP: For compatibility with `compute_l2_penalty`
+        self.weight_hh = torch.tensor(0.0, device="cuda")
 
+    def forward(self, input: torch.Tensor, hidden: torch.Tensor):
+        hidden_input = torch.cat([hidden, input], dim=1)
+        for layer in self.layers:
+            hidden_input = layer(hidden_input)
+        # return hidden + 0.1 * self.mlp(hidden_input)
+        return hidden + 0.1 * self.output_layer(hidden_input)
+    
 class ClippedGRUCell(nn.GRUCell):
     def __init__(
         self,
