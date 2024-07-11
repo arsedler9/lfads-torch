@@ -1,6 +1,6 @@
 # `lfads-torch`: A modular and extensible implementation of latent factor analysis via dynamical systems
 
-[![arXiv](https://img.shields.io/badge/arXiv-2309.01230-b31b1b.svg)](https://arxiv.org/abs/2309.01230)
+[![arXiv](https://img.shields.io/badge/arXiv-2309.01230-b31b1b.svg)](https://arxiv.org/abs/2309.01230) [![Gitter](https://img.shields.io/badge/chat-on%20gitter-brightgreen)](https://app.gitter.im/#/room/#lfads:gitter.im)
 
 **If you use lfads-torch in published work, please cite our preprint:**
 >Sedler AR, Pandarinath C. lfads-torch: A modular and extensible implementation of latent factor analysis via dynamical systems. arXiv preprint arXiv:2309.01230. 2023 Sep 3.
@@ -77,6 +77,9 @@ Data augmentation is a particularly effective tool for training LFADS models. In
 
 ## Modular Priors
 The LFADS model computes KL penalties between posteriors and priors for both initial condition and inferred input distributions, which are added to the reconstruction cost in the variational ELBO. In the original implementation, priors were multivariate normal and autoregressive multivariate normal for the initial condition and inferred inputs, respectively. In `lfads-torch`, the user can easily switch between priors using the `ic_prior` and `co_prior` config arguments or create custom prior modules by implementing `make_posterior` and `forward` functions. This gives users the freedom to experiment with alternative priors that may be more appropriate for certain brain areas and tasks.
+
+# Want to know more?
+Join the [Gitter room](https://app.gitter.im/#/room/#lfads:gitter.im) to chat with the creators and follow issues, pull requests, and releases. If you have never used Gitter, you can sign in with Element via your GitHub credentials after clicking the link. You can also join via [Matrix](https://matrix.to/#/#lfads:gitter.im). 
 
 # References
 1. David Sussillo, Rafal Jozefowicz, LF Abbott, and Chethan Pandarinath. LFADS – Latent Factor Analysis via Dynamical Systems. arXiv preprint arXiv:1608.06315, 2016.
