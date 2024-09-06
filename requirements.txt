@@ -13,3 +13,4 @@ wandb
 scikit-learn
 ipykernel
 seaborn
+numpy<2
