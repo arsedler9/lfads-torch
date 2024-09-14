@@ -80,6 +80,9 @@ class SpikeJitter:
         jittered_data[b_i, t_i, n_i] = counts.float()
         return jittered_data
 
+    def process_losses(self, recon_loss, *args):
+        return recon_loss
+
 
 class TemporalShift:
     def __init__(self, std=3.0, max_shift=6):
@@ -107,6 +110,9 @@ class TemporalShift:
         # Apply the shifts to the data
         shifted_data = torch.gather(data, dim=1, index=shifted_indices)
         return shifted_data
+
+    def process_losses(self, recon_loss, *args):
+        return recon_loss
 
 
 class CoordinatedDropout:
