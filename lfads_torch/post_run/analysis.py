@@ -52,7 +52,7 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
             else:
                 sums = [s + o.detach() for s, o in zip(sums, output)]
         # Finish averaging by dividing by the total number of samples
-        return [s / num_samples for s in sums]
+        return [(s / num_samples).cpu() for s in sums]
 
     # Compute outputs for one session at a time
     for s, dataloaders in pred_dls.items():
@@ -82,7 +82,7 @@ def run_posterior_sampling(model, datamodule, filename, num_samples=50):
                     run_ps_batch(s, batch) for batch in tqdm(dataloaders[split])
                 ]
             post_means = SessionOutput(
-                *[torch.cat(o).cpu().numpy() for o in transpose_lists(post_means)]
+                *[torch.cat(o).numpy() for o in transpose_lists(post_means)]
             )
             # Save the averages to the output file
             with h5py.File(sess_fname, mode="a") as h5file:
