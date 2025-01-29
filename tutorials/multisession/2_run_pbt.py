@@ -16,7 +16,7 @@ from lfads_torch.run_model import run_model
 
 # ---------- OPTIONS ----------
 PROJECT_STR = "pbt"
-DATASET_STR = "rouse_multisession_PCR"
+DATASET_STR = "rouse_multisession"
 RUN_TAG = datetime.now().strftime("%y%m%d")
 RUN_DIR = Path("/path/to/save/run/") / PROJECT_STR / DATASET_STR / RUN_TAG
 HYPERPARAM_SPACE = {
@@ -46,7 +46,7 @@ init_space = {name: tune.sample_from(hp.init) for name, hp in HYPERPARAM_SPACE.i
 # Set the mandatory config overrides to select datamodule and model
 mandatory_overrides = {
     "datamodule": DATASET_STR,
-    "model": DATASET_STR,
+    "model": DATASET_STR + "_PCR",
     "logger.wandb_logger.project": PROJECT_STR,
     "logger.wandb_logger.tags.1": DATASET_STR,
     "logger.wandb_logger.tags.2": RUN_TAG,
