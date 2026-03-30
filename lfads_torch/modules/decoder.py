@@ -31,8 +31,8 @@ class DecoderCell(nn.Module):
             self.gen_cell = ClippedNODE_DV_Cell(
                 input_size=hps.ext_input_dim + hps.co_dim,
                 latent_size=hps.gen_dim,
-                hidden_size=128,
-                num_layers=3,
+                hidden_size=hps.node_dim,
+                num_layers=hps.node_layers,
             )
             # self.gen_cell = MLPCell(
             #     hps.ext_input_dim + hps.co_dim, hps.gen_dim, hps.node_layers, hps.node_dim

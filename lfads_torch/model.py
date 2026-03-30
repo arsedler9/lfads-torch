@@ -265,16 +265,23 @@ class LFADS(pl.LightningModule):
         l2_ramp = self._compute_ramp(hps.l2_start_epoch, hps.l2_increase_epoch)
         kl_ramp = self._compute_ramp(hps.kl_start_epoch, hps.kl_increase_epoch)
 
-        # Compute additional losses
-        additional_loss, additional_metrics = zip(*[self.loss_stack.compute_losses(
-            readout = self.readout[s],
-            recon = self.recon[s],
-            output=output[s],
-            batch=batch[s],
-            hps=hps,
-            device=self.device,
-        ) for s in sessions])
-        additional_loss = torch.mean(torch.stack(additional_loss))
+        if hps.gen_type == 'mlp':
+            # Compute additional losses
+            additional_loss, additional_metrics = zip(*[self.loss_stack.compute_losses(
+                readout = self.readout[s],
+                recon = self.recon[s],
+                output=output[s],
+                batch=batch[s],
+                hps=hps,
+                device=self.device,
+            ) for s in sessions])
+            if all(l == 0.0 for l in additional_loss):
+                additional_loss = torch.tensor(0.0, device=self.device)
+            else:
+                additional_loss = torch.mean(torch.stack(additional_loss))
+        else:
+            additional_loss = torch.tensor(0.0, device=self.device)
+            additional_metrics = [{} for _ in sessions]
 
         # Compute the final loss
         loss = hps.loss_scale * (recon + l2_ramp * l2 + kl_ramp * (ic_kl + co_kl) + hps.minSV_scale * additional_loss)

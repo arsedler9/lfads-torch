@@ -157,6 +157,9 @@ class _MultisessionModuleList(abc.ABC, nn.ModuleList):
                         data_path=data_path,
                         in_features=in_features,
                     )
+                elif module == 'stiefel':
+                    in_features, out_features = self._get_layer_shape(data_path)
+                    layer = StiefelLinear(in_features, out_features)
             modules.append(layer)
         # Create the nn.ModuleList
         super().__init__(modules)
